@@ -22,18 +22,18 @@ func RunTUI() {
 	selectedIdx := 0
 
 	items := []string{
-		"1. Start Server (Background Daemon)",
-		"2. Stop Server",
-		"3. Check Server Status & Health",
-		"4. Open Web Dashboard in Browser",
-		"5. Quick Chat in Terminal (Test Opus 4.7/5)",
-		"6. Sync Models to ALL Harnesses (OMP, Pi, OpenCode, Continue)",
-		"7. Show Shell Environment Variables (Claude Code, Cursor, zcode)",
-		"8. View Available Models",
-		"9. Change Listen Port",
-		"10. Update RMIT Val Token",
-		"11. Export Chat History to Markdown",
-		"0. Exit",
+		"Start Server (Background Daemon)",
+		"Stop Server",
+		"Check Server Status & Health",
+		"Open Web Dashboard in Browser",
+		"Quick Chat in Terminal (Test Opus 4.7/5)",
+		"Sync Models to ALL Harnesses (OMP, Pi, OpenCode, Continue)",
+		"Show Shell Environment Variables (Claude Code, Cursor, zcode)",
+		"View Available Models",
+		"Change Listen Port",
+		"Update RMIT Val Token",
+		"Export Chat History to Markdown",
+		"Exit",
 	}
 
 	for {
@@ -41,16 +41,15 @@ func RunTUI() {
 		client := valclient.NewClient(cfg.UpstreamURL, cfg.Token)
 		running, pid := daemon.GetStatus(cfg.ListenAddr)
 
-		statusStr := "[STOPPED]"
+		statusStr := "\x1b[33m● Stopped\x1b[0m"
 		if running {
-			statusStr = fmt.Sprintf("[RUNNING (PID %d)]", pid)
+			statusStr = fmt.Sprintf("\x1b[32m● Running (PID %d)\x1b[0m", pid)
 		}
 
 		header := fmt.Sprintf(
-			"+===========================================================+\r\n"+
-				"| val2harness - RMIT Val AI Bridge                           |\r\n"+
-				"| Status: %-18s  Port: %-22s |\r\n"+
-				"+===========================================================+\r\n\r\n",
+			"\r\n\x1b[1mval2harness\x1b[0m \x1b[90m·\x1b[0m RMIT Val AI Bridge\r\n"+
+				"Status: %s \x1b[90m·\x1b[0m Port: \x1b[1m%s\x1b[0m\r\n"+
+				"\x1b[90m────────────────────────────────────────────────────────────\x1b[0m\r\n\r\n",
 			statusStr, cfg.ListenAddr,
 		)
 

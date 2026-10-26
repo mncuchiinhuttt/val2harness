@@ -35,7 +35,6 @@ func readKey(fd int) (KeyAction, error) {
 	case 'j', 'J': // Vim down
 		return ActionDown, nil
 	case 27: // Escape sequence
-		// Check if it's an arrow key: 27, 91, 65/66
 		n, err := os.Stdin.Read(buf[1:2])
 		if err != nil || n == 0 {
 			return ActionQuit, nil
@@ -74,21 +73,21 @@ func SelectMenu(statusHeader string, items []string, selectedIdx int) int {
 	fmt.Print("\x1b[?25l") // hide cursor
 
 	for {
-		// Clear screen and draw menu
-		fmt.Print("\x1b[H\x1b[2J") // Clear entire screen and home cursor
+		// Clear screen and draw menu (Claude Code style)
+		fmt.Print("\x1b[H\x1b[2J")
 		fmt.Print(statusHeader)
-		fmt.Print("  Controls: [Up/Down] Navigate  [Enter] Select  [q] Exit\r\n\r\n")
 
 		for i, item := range items {
 			if i == selectedIdx {
-				// Highlighted item (Cyan bold with arrow pointer)
-				fmt.Printf("\x1b[1;36m> [*] %-60s\x1b[0m\r\n", item)
+				// Claude Code active indicator: bold cyan with ❯ pointer
+				fmt.Printf("\x1b[1;36m❯ %s\x1b[0m\r\n", item)
 			} else {
-				// Normal item
-				fmt.Printf("    [ ] %-60s\r\n", item)
+				// Inactive item: indented
+				fmt.Printf("  %s\r\n", item)
 			}
 		}
-		fmt.Print("\r\n")
+
+		fmt.Print("\r\n\x1b[90mUse ↑/↓ to navigate · Enter to select · Esc/q to exit\x1b[0m\r\n")
 
 		action, err := readKey(fd)
 		if err != nil || action == ActionQuit {
