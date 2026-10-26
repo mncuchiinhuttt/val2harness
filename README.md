@@ -28,10 +28,16 @@ Precompiled static binaries for version **v1.0.0**:
 
 All packages are verified via [checksums.txt](https://github.com/mncuchiinhuttt/val2harness/releases/download/v1.0.0/checksums.txt).
 
-### One-Line Install (macOS / Linux)
+### Quick Installation
 
+**macOS / Linux:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mncuchiinhuttt/val2harness/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/mncuchiinhuttt/val2harness/main/install.ps1 | iex
 ```
 
 ---
