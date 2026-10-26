@@ -1,5 +1,9 @@
 module val2harness
 
-go 1.24.5
+go 1.26.0
 
-require gopkg.in/yaml.v3 v3.0.1 // indirect
+require (
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/term v0.47.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
