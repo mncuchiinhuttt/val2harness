@@ -30,6 +30,10 @@ func GetOMPModelsPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	agentPath := filepath.Join(home, ".omp", "agent", "models.yml")
+	if _, err := os.Stat(filepath.Dir(agentPath)); err == nil {
+		return agentPath, nil
+	}
 	return filepath.Join(home, ".omp", "models.yml"), nil
 }
 
@@ -96,10 +100,10 @@ func SyncModels(ctx context.Context, client *valclient.Client, proxyBaseURL, pro
 
 	var ompModels []OMPModel
 	for _, m := range valModels {
-		ctxWindow := 200000
-		maxTok := 65536
-		if strings.Contains(m.ID, "opus") || strings.Contains(m.ID, "sonnet") {
-			maxTok = 128000
+		ctxWindow := 1000000 // 1M context
+		maxTok := 128000
+		if strings.Contains(m.ID, "haiku") || strings.Contains(m.ID, "mini") {
+			maxTok = 65536
 		}
 		ompModels = append(ompModels, OMPModel{
 			ID:            m.ID,
@@ -147,11 +151,15 @@ func SyncModels(ctx context.Context, client *valclient.Client, proxyBaseURL, pro
 		return 0, "", fmt.Errorf("failed to serialize updated models.yml: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(ompPath), 0755); err != nil {
-		return 0, "", err
+	home, _ := os.UserHomeDir()
+	paths := []string{
+		filepath.Join(home, ".omp", "agent", "models.yml"),
+		filepath.Join(home, ".omp", "models.yml"),
 	}
-	if err := os.WriteFile(ompPath, outData, 0644); err != nil {
-		return 0, "", err
+	for _, p := range paths {
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err == nil {
+			_ = os.WriteFile(p, outData, 0644)
+		}
 	}
 
 	return len(ompModels), ompPath, nil

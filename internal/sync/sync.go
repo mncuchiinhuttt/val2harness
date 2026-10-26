@@ -46,7 +46,13 @@ func getHarnessPaths(harness string) (target, backup string, err error) {
 	}
 	switch strings.ToLower(harness) {
 	case "omp":
-		target = filepath.Join(home, ".omp", "models.yml")
+		pAgent := filepath.Join(home, ".omp", "agent", "models.yml")
+		pLegacy := filepath.Join(home, ".omp", "models.yml")
+		if _, err := os.Stat(filepath.Dir(pAgent)); err == nil {
+			target = pAgent
+		} else {
+			target = pLegacy
+		}
 	case "pi":
 		target = filepath.Join(home, ".pi", "models.json")
 	case "opencode":
@@ -88,6 +94,10 @@ func RestoreHarness(harness string) (string, error) {
 	}
 	if err := os.WriteFile(target, data, 0644); err != nil {
 		return "", fmt.Errorf("failed to restore %s: %w", target, err)
+	}
+	if strings.ToLower(harness) == "omp" {
+		h, _ := os.UserHomeDir()
+		_ = os.WriteFile(filepath.Join(h, ".omp", "models.yml"), data, 0644)
 	}
 	return target, nil
 }
