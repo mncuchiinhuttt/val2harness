@@ -5,7 +5,7 @@
 [![Go](https://img.shields.io/badge/Language-Go%201.26-00ADD8?style=flat-square&logo=go)](https://golang.org)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-blue?style=flat-square)]()
 [![Architecture](https://img.shields.io/badge/Arch-ARM64%20%7C%20x86__64-informational?style=flat-square)]()
-[![License](https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
 **val2harness** bridges institutional access on **RMIT Val AI** (`https://val.rmit.edu.au`) directly into developer agent harnesses, including **OMP**, **Pi Harness**, **OpenCode**, **Claude Code**, **Continue**, **Cursor**, and **zcode**.
 
@@ -201,4 +201,28 @@ go build -ldflags="-s -w" -o val2harness .
 
 ## License
 
-MIT License. Designed for education and research development workflows.
+This project is licensed under the [MIT License](LICENSE).
+
+```text
+MIT License
+
+Copyright (c) 2026 mncuchiinhuttt
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
