@@ -34,6 +34,7 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":{"type":"invalid_request_error","message":"Method not allowed"}}`, http.StatusMethodNotAllowed)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 15<<20)
 	start := time.Now()
 	var req anthropicReq
 	bodyBytes, err := io.ReadAll(r.Body)

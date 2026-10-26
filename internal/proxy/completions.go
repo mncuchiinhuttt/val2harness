@@ -29,6 +29,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 15<<20)
 	start := time.Now()
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {

@@ -101,6 +101,10 @@ func SelfUpdate(ctx context.Context) (string, error) {
 	if info.DownloadURL == "" {
 		return "", fmt.Errorf("no matching binary found for %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
+	expectedPrefix := fmt.Sprintf("https://github.com/%s/releases/download/", RepoName)
+	if !strings.HasPrefix(info.DownloadURL, expectedPrefix) {
+		return "", fmt.Errorf("untrusted download URL: %s", info.DownloadURL)
+	}
 
 	execPath, err := os.Executable()
 	if err != nil {

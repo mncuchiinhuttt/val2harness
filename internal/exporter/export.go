@@ -52,7 +52,11 @@ func ExportAllChats(ctx context.Context, client *valclient.Client, outDir string
 		}
 
 		slug := sanitizeFilename(ch.Title)
-		baseName := fmt.Sprintf("%s-%s", ch.ID[:8], slug)
+		idPrefix := ch.ID
+		if len(idPrefix) > 8 {
+			idPrefix = idPrefix[:8]
+		}
+		baseName := fmt.Sprintf("%s-%s", idPrefix, slug)
 
 		// Save JSON
 		jsonBytes, err := json.MarshalIndent(chatDetails, "", "  ")

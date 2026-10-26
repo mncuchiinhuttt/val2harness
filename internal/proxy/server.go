@@ -2,7 +2,10 @@ package proxy
 
 import (
 	"context"
+	"crypto/subtle"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -50,14 +53,22 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
 	path := r.URL.Path
 
-	// Protect local management API from cross-site / external origins
+	// Security response headers
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+
+	// Protect management API: loopback callers & local origins only
 	if strings.HasPrefix(path, "/api/local/") {
+		if !isLoopbackAddr(r.RemoteAddr) {
+			http.Error(w, `{"error":{"message":"Forbidden: loopback access only"}}`, http.StatusForbidden)
+			return
+		}
 		if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 			http.Error(w, `{"error":{"message":"Forbidden: cross-site request"}}`, http.StatusForbidden)
 			return
 		}
 		if origin != "" {
-			if !isAllowedLocalOrigin(origin, s.cfg.ListenAddr) {
+			if !isAllowedLocalOrigin(origin) {
 				http.Error(w, `{"error":{"message":"Forbidden: untrusted origin"}}`, http.StatusForbidden)
 				return
 			}
@@ -78,7 +89,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Verify local API key if configured
 	if s.cfg.APIKey != "" && !strings.HasPrefix(path, "/static/") && path != "/" {
 		auth := r.Header.Get("Authorization")
-		if auth != "Bearer "+s.cfg.APIKey && r.Header.Get("x-api-key") != s.cfg.APIKey {
+		key := r.Header.Get("x-api-key")
+		if !verifyLocalAuth(auth, key, s.cfg.APIKey) {
 			http.Error(w, `{"error":{"message":"Unauthorized"}}`, http.StatusUnauthorized)
 			return
 		}
@@ -87,9 +99,36 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func isAllowedLocalOrigin(origin, listenAddr string) bool {
-	clean := strings.TrimPrefix(strings.TrimPrefix(origin, "http://"), "https://")
-	return clean == listenAddr || strings.HasPrefix(clean, "localhost:") || strings.HasPrefix(clean, "127.0.0.1:")
+func isAllowedLocalOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
+}
+
+func isLoopbackAddr(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func verifyLocalAuth(authHeader, apiKeyHeader, expectedKey string) bool {
+	expBytes := []byte(expectedKey)
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if subtle.ConstantTimeCompare([]byte(token), expBytes) == 1 {
+			return true
+		}
+	}
+	if apiKeyHeader != "" && subtle.ConstantTimeCompare([]byte(apiKeyHeader), expBytes) == 1 {
+		return true
+	}
+	return false
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +142,7 @@ func (s *Server) Start() error {
 		Addr:         s.cfg.ListenAddr,
 		Handler:      s,
 		ReadTimeout:  120 * time.Second,
-		WriteTimeout: 0, // No write timeout for long SSE streams
+		WriteTimeout: 0,
 	}
 	return s.httpServer.ListenAndServe()
 }
