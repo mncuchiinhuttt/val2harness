@@ -18,6 +18,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatInput = document.getElementById("chatInput");
   const chatHistory = document.getElementById("chatHistory");
   const exportChatsBtn = document.getElementById("exportChatsBtn");
+  const versionBadgeBtn = document.getElementById("versionBadgeBtn");
+  const versionText = document.getElementById("versionText");
+  const updateNowBtn = document.getElementById("updateNowBtn");
 
   // Analytics DOM
   const statTotalReqs = document.getElementById("statTotalReqs");
@@ -495,6 +498,59 @@ document.addEventListener("DOMContentLoaded", () => {
       sendChatBtn.disabled = false;
     }
   });
+
+  async function checkVersion(isManual = false) {
+    try {
+      if (isManual) showToast({ title: "Checking Updates", description: "Querying latest release from GitHub...", variant: "info" });
+      const res = await fetch("/api/local/version");
+      const data = await res.json();
+      if (versionText && data.current_version) {
+        versionText.textContent = data.current_version;
+      }
+      if (data.has_update) {
+        versionBadgeBtn.className = "badge badge-warning";
+        versionBadgeBtn.title = "Update available: " + data.latest_version;
+        updateNowBtn.style.display = "inline-flex";
+        updateNowBtn.textContent = "Update to " + data.latest_version;
+        if (isManual) {
+          showToast({ title: "Update Available", description: "Version " + data.latest_version + " is available.", variant: "info" });
+        }
+      } else {
+        versionBadgeBtn.className = "badge badge-neutral";
+        updateNowBtn.style.display = "none";
+        if (isManual) {
+          showToast({ title: "Up to Date", description: "Running latest release (" + data.current_version + ")", variant: "success" });
+        }
+      }
+    } catch (e) {
+      if (isManual) showToast({ title: "Check Failed", description: e.message, variant: "error" });
+    }
+  }
+
+  versionBadgeBtn.addEventListener("click", () => checkVersion(true));
+  updateNowBtn.addEventListener("click", async () => {
+    updateNowBtn.disabled = true;
+    updateNowBtn.textContent = "Updating...";
+    showToast({ title: "Downloading Update", description: "Fetching and replacing binary...", variant: "info" });
+    try {
+      const res = await fetch("/api/local/update", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast({ title: "Update Successful", description: "Updated to " + data.version + ". Reloading page...", variant: "success" });
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        showToast({ title: "Update Failed", description: data.error, variant: "error" });
+        updateNowBtn.disabled = false;
+        updateNowBtn.textContent = "Retry Update";
+      }
+    } catch (e) {
+      showToast({ title: "Update Error", description: e.message, variant: "error" });
+      updateNowBtn.disabled = false;
+      updateNowBtn.textContent = "Retry Update";
+    }
+  });
+
+  checkVersion(false);
 
   // Initial tab from ?tab=
   const initialSlug = new URLSearchParams(window.location.search).get("tab") || "overview";

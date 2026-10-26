@@ -11,6 +11,7 @@ import (
 	"val2harness/internal/exporter"
 	valSync "val2harness/internal/sync"
 	"val2harness/internal/valclient"
+	"val2harness/internal/version"
 )
 
 func registerHarnessRoutes(mux *http.ServeMux, cfg *config.Config, client *valclient.Client) {
@@ -133,5 +134,29 @@ func registerHarnessRoutes(mux *http.ServeMux, cfg *config.Config, client *valcl
 				flusher.Flush()
 			}
 		}
+	})
+	mux.HandleFunc("/api/local/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		info, err := version.CheckUpdate(r.Context())
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]any{"current_version": version.CurrentVersion, "has_update": false, "error": err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(info)
+	})
+
+	mux.HandleFunc("/api/local/update", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		v, err := version.SelfUpdate(r.Context())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "version": v})
 	})
 }

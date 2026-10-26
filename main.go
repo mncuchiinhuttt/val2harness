@@ -41,6 +41,10 @@ func main() {
 		runToken(args)
 	case "export":
 		runExport(args)
+	case "update":
+		runUpdate(args)
+	case "version", "-v", "--version":
+		runUpdate([]string{"--check"})
 	case "help", "-h", "--help":
 		printHelp()
 	default:
@@ -66,6 +70,7 @@ Commands:
   models      List all models available on your RMIT Val account
   sync        Sync models to ALL harnesses (OMP, Pi, OpenCode, Continue)
   env         Print shell export variables (for Claude Code, Cursor, Aider, zcode)
+  update      Check and install latest val2harness release
   token       View or update the RMIT Val JWT token
   export      Export chat conversations to Markdown and JSON
   help        Show this help message
