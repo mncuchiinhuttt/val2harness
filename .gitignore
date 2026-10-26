@@ -1,4 +1,7 @@
 val2harness
+val2harness.exe
+dist/packages/*.tar.gz
+dist/packages/*.zip
 exports/
 *.log
 *.pid
