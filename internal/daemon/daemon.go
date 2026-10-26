@@ -90,9 +90,7 @@ func StartDaemon(addr string) (int, error) {
 	cmd := exec.Command(binPath, "serve", "--addr", addr)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
+	setDaemonSysProcAttr(cmd)
 
 	if err := cmd.Start(); err != nil {
 		return 0, fmt.Errorf("failed to spawn daemon: %w", err)
@@ -145,11 +143,7 @@ func StopDaemon(addr string) error {
 		return nil
 	}
 
-	_ = proc.Signal(syscall.SIGTERM)
-	time.Sleep(500 * time.Millisecond)
-	if IsProcessAlive(pid) {
-		_ = proc.Signal(syscall.SIGKILL)
-	}
+	terminateProcess(proc)
 
 	_ = os.Remove(pidPath)
 	return nil
