@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"time"
 
@@ -13,16 +12,18 @@ import (
 )
 
 type Tracker struct {
-	mu         sync.RWMutex
-	records    []UsageRecord
-	dailyMap   map[string]*HeatmapCell
-	modelsMap  map[string]*ModelUsageStat
-	totalReqs  int
-	totalToks  int
-	promptToks int
-	compToks   int
-	totalLat   int64
-	filePath   string
+	mu          sync.RWMutex
+	records     []UsageRecord
+	dailyMap    map[string]*HeatmapCell
+	modelsMap   map[string]*ModelUsageStat
+	totalReqs   int
+	totalToks   int
+	promptToks  int
+	compToks    int
+	totalLat    int64
+	filePath    string
+	listenersMu sync.Mutex
+	listeners   map[chan AnalyticsSummary]struct{}
 }
 
 var globalTracker *Tracker
@@ -44,6 +45,7 @@ func newTracker() *Tracker {
 		dailyMap:  make(map[string]*HeatmapCell),
 		modelsMap: make(map[string]*ModelUsageStat),
 		filePath:  filePath,
+		listeners: make(map[chan AnalyticsSummary]struct{}),
 	}
 	t.load()
 	return t
@@ -73,7 +75,6 @@ func (t *Tracker) aggregate(r UsageRecord) {
 	t.compToks += r.CompletionTokens
 	t.totalLat += r.LatencyMs
 
-	// Daily heatmap cell
 	cell, exists := t.dailyMap[r.Date]
 	if !exists {
 		cell = &HeatmapCell{Date: r.Date}
@@ -82,7 +83,6 @@ func (t *Tracker) aggregate(r UsageRecord) {
 	cell.Count++
 	cell.Tokens += r.TotalTokens
 
-	// Model stat
 	ms, exists := t.modelsMap[r.Model]
 	if !exists {
 		ms = &ModelUsageStat{Model: r.Model}
@@ -116,9 +116,11 @@ func (t *Tracker) Record(model, protocol string, promptTokens, compTokens int, l
 
 	t.mu.Lock()
 	t.aggregate(rec)
+	summary := t.buildSummary()
 	t.mu.Unlock()
 
-	// Persist asynchronously
+	t.broadcast(summary)
+
 	go func(r UsageRecord) {
 		_ = os.MkdirAll(filepath.Dir(t.filePath), 0755)
 		f, err := os.OpenFile(t.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -133,61 +135,5 @@ func (t *Tracker) Record(model, protocol string, promptTokens, compTokens int, l
 func (t *Tracker) GetSummary() AnalyticsSummary {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-
-	avgLat := int64(0)
-	if t.totalReqs > 0 {
-		avgLat = t.totalLat / int64(t.totalReqs)
-	}
-
-	// Models breakdown sorted by requests descending
-	var mList []ModelUsageStat
-	for _, ms := range t.modelsMap {
-		mList = append(mList, *ms)
-	}
-	sort.Slice(mList, func(i, j int) bool {
-		return mList[i].Requests > mList[j].Requests
-	})
-
-	// GitHub style 26-week / 182-day calendar heatmap
-	now := time.Now()
-	daysCount := 182
-	heatmap := make([]HeatmapCell, 0, daysCount)
-	for i := daysCount - 1; i >= 0; i-- {
-		day := now.AddDate(0, 0, -i)
-		dStr := day.Format("2006-01-02")
-		cell := HeatmapCell{Date: dStr, Count: 0, Tokens: 0, Level: 0}
-		if existing, ok := t.dailyMap[dStr]; ok {
-			cell.Count = existing.Count
-			cell.Tokens = existing.Tokens
-			switch {
-			case cell.Count >= 20:
-				cell.Level = 4
-			case cell.Count >= 10:
-				cell.Level = 3
-			case cell.Count >= 4:
-				cell.Level = 2
-			case cell.Count >= 1:
-				cell.Level = 1
-			}
-		}
-		heatmap = append(heatmap, cell)
-	}
-
-	// Recent logs (last 25)
-	recent := make([]UsageRecord, 0)
-	for i := len(t.records) - 1; i >= 0 && len(recent) < 25; i-- {
-		recent = append(recent, t.records[i])
-	}
-
-	return AnalyticsSummary{
-		TotalRequests:    t.totalReqs,
-		TotalTokens:      t.totalToks,
-		PromptTokens:     t.promptToks,
-		CompletionTokens: t.compToks,
-		ActiveDays:       len(t.dailyMap),
-		AvgLatencyMs:     avgLat,
-		ModelsBreakdown:  mList,
-		Heatmap:          heatmap,
-		RecentLogs:       recent,
-	}
+	return t.buildSummary()
 }

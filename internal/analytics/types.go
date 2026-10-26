@@ -13,10 +13,13 @@ type UsageRecord struct {
 }
 
 type HeatmapCell struct {
-	Date   string `json:"date"` // YYYY-MM-DD
-	Count  int    `json:"count"`
-	Tokens int    `json:"tokens"`
-	Level  int    `json:"level"` // 0 to 4 (GitHub color scale)
+	Date      string `json:"date"` // YYYY-MM-DD
+	Count     int    `json:"count"`
+	Tokens    int    `json:"tokens"`
+	Level     int    `json:"level"` // 0 to 4
+	DayOfWeek int    `json:"day_of_week"`
+	Month     string `json:"month,omitempty"`
+	IsFuture  bool   `json:"is_future,omitempty"`
 }
 
 type ModelUsageStat struct {

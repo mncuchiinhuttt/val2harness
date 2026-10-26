@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -101,5 +102,36 @@ func registerHarnessRoutes(mux *http.ServeMux, cfg *config.Config, client *valcl
 		w.Header().Set("Content-Type", "application/json")
 		summary := analytics.GetTracker().GetSummary()
 		json.NewEncoder(w).Encode(summary)
+	})
+	mux.HandleFunc("/api/local/analytics/live", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+			return
+		}
+		tracker := analytics.GetTracker()
+		ch := tracker.Subscribe()
+		defer tracker.Unsubscribe(ch)
+
+		initBytes, _ := json.Marshal(tracker.GetSummary())
+		fmt.Fprintf(w, "data: %s\n\n", string(initBytes))
+		flusher.Flush()
+
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case summary, ok := <-ch:
+				if !ok {
+					return
+				}
+				data, _ := json.Marshal(summary)
+				fmt.Fprintf(w, "data: %s\n\n", string(data))
+				flusher.Flush()
+			}
+		}
 	})
 }

@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const statTokensSub = document.getElementById("statTokensSub");
   const statActiveDays = document.getElementById("statActiveDays");
   const statAvgLat = document.getElementById("statAvgLat");
+  const heatmapMonthsRow = document.getElementById("heatmapMonthsRow");
   const heatmapGrid = document.getElementById("heatmapGrid");
   const modelsBreakdownBody = document.getElementById("modelsBreakdownBody");
   const recentLogsBody = document.getElementById("recentLogsBody");
@@ -38,6 +39,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let allModels = [];
   let currentModel = "anthropic-claude-opus-4-7";
+
+  const slugMap = {
+    "tab-overview": "overview",
+    "tab-analytics": "analytics",
+    "tab-harnesses": "harnesses",
+    "tab-playground": "playground",
+    "tab-exports": "exports",
+  };
+  const idMap = {
+    overview: "tab-overview",
+    analytics: "tab-analytics",
+    harnesses: "tab-harnesses",
+    playground: "tab-playground",
+    exports: "tab-exports",
+  };
 
   function showToast({ title, description, variant = "info" }) {
     const toast = document.createElement("div");
@@ -56,21 +72,36 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 3200);
   }
 
-  // Tabs Switching
+  // Tabs Switching with ?tab= Preservation
+  function switchTab(tabId, pushHistory = true) {
+    document.querySelectorAll(".tab-trigger").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+
+    const triggerBtn = document.querySelector(`.tab-trigger[data-tab="${tabId}"]`);
+    const panel = document.getElementById(tabId);
+    if (triggerBtn) triggerBtn.classList.add("active");
+    if (panel) panel.classList.add("active");
+
+    const slug = slugMap[tabId] || "overview";
+    if (pushHistory) {
+      const url = new URL(window.location);
+      url.searchParams.set("tab", slug);
+      window.history.replaceState(null, "", url);
+    }
+  }
+
   document.querySelectorAll(".tab-trigger").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-trigger").forEach((b) => b.classList.remove("active"));
-      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-      btn.classList.add("active");
-      const tabId = btn.getAttribute("data-tab");
-      const target = document.getElementById(tabId);
-      if (target) target.classList.add("active");
-      if (tabId === "tab-analytics") {
-        loadAnalytics();
-      }
+      switchTab(btn.getAttribute("data-tab"), true);
     });
   });
 
+  window.addEventListener("popstate", () => {
+    const slug = new URLSearchParams(window.location.search).get("tab") || "overview";
+    switchTab(idMap[slug] || "tab-overview", false);
+  });
+
+  // Load Status
   async function loadStatus() {
     try {
       const res = await fetch("/api/local/status");
@@ -109,70 +140,112 @@ document.addEventListener("DOMContentLoaded", () => {
 
       loadHarnesses();
       loadModels();
-      loadAnalytics();
     } catch (e) {
       showToast({ title: "Gateway Offline", description: "Could not reach local server.", variant: "error" });
     }
   }
 
-  // Load Analytics & GitHub Heatmap
-  async function loadAnalytics() {
-    try {
-      const res = await fetch("/api/local/analytics");
-      if (!res.ok) return;
-      const data = await res.json();
+  // Real-time Analytics & Heatmap
+  function renderAnalytics(data, isLive = false) {
+    if (!data) return;
 
-      statTotalReqs.textContent = data.total_requests.toLocaleString();
-      statTotalToks.textContent = data.total_tokens.toLocaleString();
-      statTokensSub.textContent = `Prompt: ${data.prompt_tokens.toLocaleString()} · Output: ${data.completion_tokens.toLocaleString()}`;
-      statActiveDays.textContent = `${data.active_days} Days`;
-      statAvgLat.textContent = `${data.avg_latency_ms} ms`;
+    statTotalReqs.textContent = data.total_requests.toLocaleString();
+    statTotalToks.textContent = data.total_tokens.toLocaleString();
+    statTokensSub.textContent = `Prompt: ${data.prompt_tokens.toLocaleString()} · Output: ${data.completion_tokens.toLocaleString()}`;
+    statActiveDays.textContent = `${data.active_days} Days`;
+    statAvgLat.textContent = `${data.avg_latency_ms} ms`;
 
-      // Render Heatmap
-      if (heatmapGrid && data.heatmap) {
-        heatmapGrid.innerHTML = "";
-        data.heatmap.forEach((cell) => {
-          const div = document.createElement("div");
-          div.className = "heatmap-cell";
-          div.setAttribute("data-level", cell.level);
-          const tText = cell.tokens.toLocaleString();
+    // Render Authentic GitHub Heatmap (53 Weeks x 7 Days)
+    if (heatmapGrid && data.heatmap) {
+      heatmapGrid.innerHTML = "";
+      heatmapMonthsRow.innerHTML = "";
+
+      let lastMonth = "";
+      const weekCols = Math.ceil(data.heatmap.length / 7);
+
+      data.heatmap.forEach((cell, idx) => {
+        const colIdx = Math.floor(idx / 7);
+        const rowIdx = idx % 7;
+
+        // Render Month Label on first day of week if month changed
+        if (rowIdx === 0 && cell.Month && cell.Month !== lastMonth && colIdx < weekCols - 1) {
+          lastMonth = cell.Month;
+          const mLabel = document.createElement("span");
+          mLabel.className = "heatmap-month-label";
+          mLabel.style.left = `${colIdx * 15}px`;
+          mLabel.textContent = cell.Month;
+          heatmapMonthsRow.appendChild(mLabel);
+        }
+
+        const div = document.createElement("div");
+        div.className = `heatmap-cell ${cell.is_future ? "is-future" : ""}`;
+        div.setAttribute("data-level", cell.level);
+
+        if (!cell.is_future) {
+          const tText = cell.tokens ? cell.tokens.toLocaleString() : "0";
           div.title = `${cell.date}: ${cell.count} requests (${tText} tokens)`;
           div.addEventListener("click", () => {
-            showToast({ title: cell.date, description: `${cell.count} requests · ${tText} tokens burned`, variant: "info" });
+            showToast({ title: cell.date, description: `${cell.count} requests · ${tText} tokens`, variant: "info" });
           });
-          heatmapGrid.appendChild(div);
+          // Pulse today's cell on live query
+          if (isLive && idx === data.heatmap.length - 1) {
+            div.classList.add("pulse-highlight");
+          }
+        }
+        heatmapGrid.appendChild(div);
+      });
+    }
+
+    // Models Breakdown
+    if (modelsBreakdownBody && data.models_breakdown) {
+      if (data.models_breakdown.length === 0) {
+        modelsBreakdownBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No model requests recorded yet.</td></tr>';
+      } else {
+        modelsBreakdownBody.innerHTML = "";
+        data.models_breakdown.forEach((m) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td><span style="font-weight: 600;">${m.model}</span></td><td>${m.requests.toLocaleString()}</td><td>${m.total_tokens.toLocaleString()}</td>`;
+          modelsBreakdownBody.appendChild(tr);
         });
       }
+    }
 
-      // Render Models Breakdown
-      if (modelsBreakdownBody && data.models_breakdown) {
-        if (data.models_breakdown.length === 0) {
-          modelsBreakdownBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No model requests recorded yet.</td></tr>';
-        } else {
-          modelsBreakdownBody.innerHTML = "";
-          data.models_breakdown.forEach((m) => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `<td><span style="font-weight: 600;">${m.model}</span></td><td>${m.requests.toLocaleString()}</td><td>${m.total_tokens.toLocaleString()}</td>`;
-            modelsBreakdownBody.appendChild(tr);
-          });
-        }
+    // Recent Logs
+    if (recentLogsBody && data.recent_logs) {
+      if (data.recent_logs.length === 0) {
+        recentLogsBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No requests logged yet.</td></tr>';
+      } else {
+        recentLogsBody.innerHTML = "";
+        data.recent_logs.forEach((r, idx) => {
+          const tr = document.createElement("tr");
+          if (isLive && idx === 0) {
+            tr.className = "new-row-highlight";
+          }
+          const timeStr = new Date(r.timestamp * 1000).toLocaleTimeString();
+          tr.innerHTML = `<td style="color: var(--text-muted);">${timeStr}</td><td>${r.model}</td><td>${r.total_tokens.toLocaleString()}</td><td>${r.latency_ms}ms</td>`;
+          recentLogsBody.appendChild(tr);
+        });
       }
+    }
+  }
 
-      // Render Recent Logs
-      if (recentLogsBody && data.recent_logs) {
-        if (data.recent_logs.length === 0) {
-          recentLogsBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No requests logged yet.</td></tr>';
-        } else {
-          recentLogsBody.innerHTML = "";
-          data.recent_logs.forEach((r) => {
-            const tr = document.createElement("tr");
-            const timeStr = new Date(r.timestamp * 1000).toLocaleTimeString();
-            tr.innerHTML = `<td style="color: var(--text-muted);">${timeStr}</td><td>${r.model}</td><td>${r.total_tokens.toLocaleString()}</td><td>${r.latency_ms}ms</td>`;
-            recentLogsBody.appendChild(tr);
-          });
-        }
-      }
-    } catch (e) {}
+  // Live SSE Connection for Real-time Analytics
+  function initLiveAnalytics() {
+    try {
+      const sse = new EventSource("/api/local/analytics/live");
+      sse.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          renderAnalytics(data, true);
+        } catch (err) {}
+      };
+      sse.onerror = () => {
+        sse.close();
+        setTimeout(initLiveAnalytics, 3000);
+      };
+    } catch (e) {
+      setTimeout(initLiveAnalytics, 3000);
+    }
   }
 
   async function loadHarnesses() {
@@ -415,7 +488,6 @@ document.addEventListener("DOMContentLoaded", () => {
           } catch (e) {}
         }
       }
-      loadAnalytics();
     } catch (e) {
       assistantBubble.textContent = "Stream error: " + e.message;
       showToast({ title: "Stream Error", description: e.message, variant: "error" });
@@ -424,5 +496,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Initial tab from ?tab=
+  const initialSlug = new URLSearchParams(window.location.search).get("tab") || "overview";
+  switchTab(idMap[initialSlug] || "tab-overview", false);
+
   loadStatus();
+  initLiveAnalytics();
 });
