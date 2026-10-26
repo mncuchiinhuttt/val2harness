@@ -44,32 +44,31 @@ irm https://raw.githubusercontent.com/mncuchiinhuttt/val2harness/main/install.ps
 
 ## System Architecture
 
-```text
-                  [Developer Harnesses & Tools]
-  (OMP, Pi Coding Agent, OpenCode, Claude Code, Cursor, zcode, Aider)
-                               │
-               ┌───────────────┴───────────────┐
-               │                               │
-   HTTP / SSE (OpenAI Wire)         HTTP / SSE (Anthropic Wire)
-   POST /v1/chat/completions        POST /v1/messages
-   GET  /v1/models                             │
-               │                               │
-               ▼                               ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │                 val2harness Local Gateway                   │
-  │                  (127.0.0.1:8765 / Go Core)                 │
-  │                                                             │
-  │  • Interactive Terminal UI (Raw mode, pointer navigation)  │
-  │  • Multi-Harness Sync Engine (OMP, Pi, OpenCode, Continue)  │
-  │  • Background Daemon Orchestrator (PID/log management)      │
-  │  • SSE Multiplexer & Anthropic Protocol Translator          │
-  │  • Embedded Web Dashboard (Zero external assets)            │
-  └──────────────────────────────┬──────────────────────────────┘
-                                 │
-                                 │ Authorization: Bearer <Val JWT>
-                                 ▼
-              [RMIT Val Backend (AWS Bedrock Core)]
-      Claude Opus 4.7/5 · Claude Sonnet 4.6/5 · GPT-5/6 Series
+```mermaid
+flowchart TD
+    subgraph Clients["Developer Harnesses & Tools"]
+        direction LR
+        C1["OMP"]
+        C2["Pi Coding Agent"]
+        C3["OpenCode"]
+        C4["Claude Code"]
+        C5["Cursor / zcode / Aider"]
+    end
+
+    Clients -->|"POST /v1/chat/completions (OpenAI Wire)"| Gateway
+    Clients -->|"POST /v1/messages (Anthropic Wire)"| Gateway
+    Clients -->|"GET /v1/models"| Gateway
+
+    subgraph Gateway["val2harness Local Gateway (127.0.0.1:8765)"]
+        direction TB
+        G1["Interactive Terminal UI (Pointer Navigation)"]
+        G2["Multi-Harness Sync Engine (OMP, Pi, OpenCode, Continue)"]
+        G3["Background Daemon Orchestrator (PID/log management)"]
+        G4["SSE Multiplexer & Anthropic Protocol Translator"]
+        G5["Embedded Web Dashboard (Zero external assets)"]
+    end
+
+    Gateway -->|"Authorization: Bearer <Val JWT>"| Upstream["RMIT Val Backend (AWS Bedrock Core)<br/>Claude Opus 4.7/5 · Claude Sonnet 4.6/5 · GPT-5/6"]
 ```
 
 ---
