@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>val2harness - RMIT Val Bridge</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>val2harness</h1>
+        <div class="subtitle">RMIT Val AI Bridge for OMP and Agent Harnesses</div>
+      </div>
+      <div id="statusBadge" class="status-badge">Connecting...</div>
+    </header>
+
+    <div class="card">
+      <div class="card-title">Endpoint Information</div>
+      <div class="grid-2">
+        <div>
+          <div class="label">Upstream Val Service</div>
+          <div class="value" id="valUpstream">https://val.rmit.edu.au</div>
+        </div>
+        <div>
+          <div class="label">Local OpenAI Proxy</div>
+          <div class="value" id="localProxy">http://127.0.0.1:8080/v1</div>
+        </div>
+        <div>
+          <div class="label">Available Models</div>
+          <div class="value" id="modelsCount">Loading...</div>
+        </div>
+        <div>
+          <div class="label">Token Expiration</div>
+          <div class="value" id="tokenExp">Checking...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Authentication & Token</div>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <textarea id="tokenInput" rows="3" placeholder="Paste RMIT Val JWT token here..."></textarea>
+        <div style="display: flex; gap: 0.5rem;">
+          <button id="saveTokenBtn" class="btn">Update Token</button>
+          <button id="bookmarkletBtn" class="btn btn-secondary">Copy 1-Click Bookmarklet</button>
+        </div>
+        <div class="notice">
+          Bookmarklet tip: Drag or copy bookmarklet to your browser bar. While logged in at val.rmit.edu.au, click it to sync your token directly to val2harness.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">OMP Integration</div>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button id="syncOmpBtn" class="btn">Sync Models to ~/.omp/models.yml</button>
+          <button id="exportChatsBtn" class="btn btn-secondary">Export Chat History</button>
+          <span id="ompStatus" class="value" style="font-size: 0.8125rem; color: var(--text-muted);"></span>
+        </div>
+        <div class="code-box" id="ompSnippet">providers:
+  rmit-val:
+    baseUrl: http://127.0.0.1:8080/v1
+    apiKey: rmit-val-proxy
+    api: openai-completions</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Live Model Test</div>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div style="display: flex; gap: 0.5rem;">
+          <select id="modelSelect" style="flex: 1;">
+            <option value="">Select model...</option>
+          </select>
+          <button id="sendChatBtn" class="btn">Stream Test</button>
+        </div>
+        <input type="text" id="chatInput" value="Explain how neural networks learn in one concise sentence.">
+        <div class="chat-box" id="chatOutput">Responses will stream here in real time...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
