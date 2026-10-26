@@ -28,8 +28,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const statTokensSub = document.getElementById("statTokensSub");
   const statActiveDays = document.getElementById("statActiveDays");
   const statAvgLat = document.getElementById("statAvgLat");
-  const heatmapMonthsRow = document.getElementById("heatmapMonthsRow");
-  const heatmapGrid = document.getElementById("heatmapGrid");
+  const heatmapSubtitle = document.getElementById("heatmapSubtitle");
+  const yearButtonsGroup = document.getElementById("yearButtonsGroup");
+  const heatmapSvg = document.getElementById("heatmapSvg");
+  let selectedYear = new Date().getFullYear();
+  let currentAnalyticsData = null;
   const modelsBreakdownBody = document.getElementById("modelsBreakdownBody");
   const recentLogsBody = document.getElementById("recentLogsBody");
 
@@ -149,8 +152,106 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Real-time Analytics & Heatmap
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  function renderYearHeatmap(data, year) {
+    if (!heatmapSvg || !data) return;
+    const today = new Date();
+    const jan1 = new Date(year, 0, 1);
+    const sunWeekday = jan1.getDay(); // 0 = Sunday
+    let curr = new Date(year, 0, 1 - sunWeekday);
+
+    let totalYearReqs = 0;
+    let totalYearToks = 0;
+
+    let svgHtml = "";
+    svgHtml += '<text x="12" y="44" fill="#64748b" font-size="9px" font-weight="500" text-anchor="middle">Mon</text>';
+    svgHtml += '<text x="12" y="77" fill="#64748b" font-size="9px" font-weight="500" text-anchor="middle">Wed</text>';
+    svgHtml += '<text x="12" y="110" fill="#64748b" font-size="9px" font-weight="500" text-anchor="middle">Fri</text>';
+
+    let lastMonth = -1;
+    for (let c = 0; c < 53; c++) {
+      const colX = 34 + c * 16.5;
+      for (let r = 0; r < 7; r++) {
+        const rowY = 24 + r * 16.5;
+        const dStr = curr.toISOString().split("T")[0];
+        const mIdx = curr.getMonth();
+
+        if (r === 0 && mIdx !== lastMonth && curr.getFullYear() === year && c < 52) {
+          lastMonth = mIdx;
+          svgHtml += `<text x="${colX}" y="14" fill="#64748b" font-size="10px" font-weight="500">${monthNames[mIdx]}</text>`;
+        }
+
+        const isCurrentYear = curr.getFullYear() === year;
+        const isFuture = curr > today;
+        const count = (data.daily_records && data.daily_records[dStr]) || 0;
+        const tokens = (data.daily_tokens && data.daily_tokens[dStr]) || 0;
+
+        if (isCurrentYear) {
+          totalYearReqs += count;
+          totalYearToks += tokens;
+        }
+
+        let fill = "#ebedf0";
+        let strokeAttr = "";
+        if (!isCurrentYear) {
+          fill = "transparent";
+        } else if (isFuture) {
+          fill = "transparent";
+          strokeAttr = 'stroke="#e2e8f0" stroke-dasharray="2,2" stroke-width="1"';
+        } else if (count >= 20) {
+          fill = "#216e39";
+        } else if (count >= 10) {
+          fill = "#30a14e";
+        } else if (count >= 4) {
+          fill = "#40c463";
+        } else if (count >= 1) {
+          fill = "#9be9a8";
+        }
+
+        if (isCurrentYear) {
+          const tText = tokens.toLocaleString();
+          const tooltip = isFuture ? `Future date: ${dStr}` : `${count} requests (${tText} tokens) on ${dStr}`;
+          svgHtml += `<rect class="heatmap-rect" x="${colX}" y="${rowY}" width="13" height="13" rx="2.5" fill="${fill}" ${strokeAttr} data-date="${dStr}" data-count="${count}" data-tokens="${tokens}"><title>${tooltip}</title></rect>`;
+        }
+
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+
+    heatmapSvg.innerHTML = svgHtml;
+
+    heatmapSvg.querySelectorAll(".heatmap-rect").forEach((rect) => {
+      rect.addEventListener("click", () => {
+        const d = rect.getAttribute("data-date");
+        const c = rect.getAttribute("data-count");
+        const t = parseInt(rect.getAttribute("data-tokens") || "0").toLocaleString();
+        showToast({ title: d, description: `${c} requests · ${t} tokens burned`, variant: "info" });
+      });
+    });
+
+    if (heatmapSubtitle) {
+      heatmapSubtitle.textContent = `${totalYearReqs.toLocaleString()} requests and ${totalYearToks.toLocaleString()} tokens in ${year}`;
+    }
+
+    if (yearButtonsGroup && data.available_years) {
+      yearButtonsGroup.innerHTML = "";
+      data.available_years.forEach((y) => {
+        const btn = document.createElement("button");
+        btn.className = `year-btn ${y === year ? "active" : ""}`;
+        btn.textContent = y;
+        btn.addEventListener("click", () => {
+          selectedYear = y;
+          renderYearHeatmap(data, y);
+        });
+        yearButtonsGroup.appendChild(btn);
+      });
+    }
+  }
+
   function renderAnalytics(data, isLive = false) {
     if (!data) return;
+    currentAnalyticsData = data;
 
     statTotalReqs.textContent = data.total_requests.toLocaleString();
     statTotalToks.textContent = data.total_tokens.toLocaleString();
@@ -158,47 +259,7 @@ document.addEventListener("DOMContentLoaded", () => {
     statActiveDays.textContent = `${data.active_days} Days`;
     statAvgLat.textContent = `${data.avg_latency_ms} ms`;
 
-    // Render Authentic GitHub Heatmap (53 Weeks x 7 Days)
-    if (heatmapGrid && data.heatmap) {
-      heatmapGrid.innerHTML = "";
-      heatmapMonthsRow.innerHTML = "";
-
-      let lastMonth = "";
-      const weekCols = Math.ceil(data.heatmap.length / 7);
-
-      data.heatmap.forEach((cell, idx) => {
-        const colIdx = Math.floor(idx / 7);
-        const rowIdx = idx % 7;
-
-        // Render Month Label on first day of week if month changed
-        if (rowIdx === 0 && cell.Month && cell.Month !== lastMonth && colIdx < weekCols - 1) {
-          lastMonth = cell.Month;
-          const mLabel = document.createElement("span");
-          mLabel.className = "heatmap-month-label";
-          mLabel.style.left = `${colIdx * 15}px`;
-          mLabel.textContent = cell.Month;
-          heatmapMonthsRow.appendChild(mLabel);
-        }
-
-        const div = document.createElement("div");
-        div.className = `heatmap-cell ${cell.is_future ? "is-future" : ""}`;
-        div.setAttribute("data-level", cell.level);
-
-        if (!cell.is_future) {
-          const tText = cell.tokens ? cell.tokens.toLocaleString() : "0";
-          div.title = `${cell.date}: ${cell.count} requests (${tText} tokens)`;
-          div.addEventListener("click", () => {
-            showToast({ title: cell.date, description: `${cell.count} requests · ${tText} tokens`, variant: "info" });
-          });
-          // Pulse today's cell on live query
-          if (isLive && idx === data.heatmap.length - 1) {
-            div.classList.add("pulse-highlight");
-          }
-        }
-        heatmapGrid.appendChild(div);
-      });
-    }
-
+    renderYearHeatmap(data, selectedYear);
     // Models Breakdown
     if (modelsBreakdownBody && data.models_breakdown) {
       if (data.models_breakdown.length === 0) {

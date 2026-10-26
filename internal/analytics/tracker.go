@@ -11,10 +11,15 @@ import (
 	"val2harness/internal/config"
 )
 
+type dayBucket struct {
+	Count  int
+	Tokens int
+}
+
 type Tracker struct {
 	mu          sync.RWMutex
 	records     []UsageRecord
-	dailyMap    map[string]*HeatmapCell
+	dailyMap    map[string]*dayBucket
 	modelsMap   map[string]*ModelUsageStat
 	totalReqs   int
 	totalToks   int
@@ -42,7 +47,7 @@ func newTracker() *Tracker {
 
 	t := &Tracker{
 		records:   make([]UsageRecord, 0),
-		dailyMap:  make(map[string]*HeatmapCell),
+		dailyMap:  make(map[string]*dayBucket),
 		modelsMap: make(map[string]*ModelUsageStat),
 		filePath:  filePath,
 		listeners: make(map[chan AnalyticsSummary]struct{}),
@@ -75,13 +80,13 @@ func (t *Tracker) aggregate(r UsageRecord) {
 	t.compToks += r.CompletionTokens
 	t.totalLat += r.LatencyMs
 
-	cell, exists := t.dailyMap[r.Date]
+	b, exists := t.dailyMap[r.Date]
 	if !exists {
-		cell = &HeatmapCell{Date: r.Date}
-		t.dailyMap[r.Date] = cell
+		b = &dayBucket{}
+		t.dailyMap[r.Date] = b
 	}
-	cell.Count++
-	cell.Tokens += r.TotalTokens
+	b.Count++
+	b.Tokens += r.TotalTokens
 
 	ms, exists := t.modelsMap[r.Model]
 	if !exists {

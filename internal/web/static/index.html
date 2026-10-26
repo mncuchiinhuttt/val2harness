@@ -135,37 +135,29 @@
       </div>
 
       <!-- GitHub Commit Heatmap Card -->
+      <!-- GitHub Yearly Heatmap Card -->
       <div class="heatmap-card">
         <div class="card-header" style="border: none; padding: 0;">
           <div>
-            <div class="card-title">Activity Calendar Heatmap</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Daily requests and token burn over the past 26 weeks across all agent harnesses</div>
+            <div class="card-title" id="heatmapTitle">Activity Calendar Heatmap</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;" id="heatmapSubtitle">Yearly request frequency and token burn across all agent harnesses</div>
           </div>
-          <div class="heatmap-legend">
-            <span>Less</span>
-            <div class="legend-cell" style="background: #ebedf0;"></div>
-            <div class="legend-cell" style="background: #9be9a8;"></div>
-            <div class="legend-cell" style="background: #40c463;"></div>
-            <div class="legend-cell" style="background: #30a14e;"></div>
-            <div class="legend-cell" style="background: #216e39;"></div>
-            <span>More</span>
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <div class="heatmap-legend">
+              <span>Less</span>
+              <div class="legend-cell" style="background: #ebedf0;"></div>
+              <div class="legend-cell" style="background: #9be9a8;"></div>
+              <div class="legend-cell" style="background: #40c463;"></div>
+              <div class="legend-cell" style="background: #30a14e;"></div>
+              <div class="legend-cell" style="background: #216e39;"></div>
+              <span>More</span>
+            </div>
+            <div class="year-buttons-group" id="yearButtonsGroup"></div>
           </div>
         </div>
 
-        <div class="heatmap-wrapper">
-          <div class="heatmap-months-row" id="heatmapMonthsRow"></div>
-          <div class="heatmap-body">
-            <div class="heatmap-days-col">
-              <span class="heatmap-day-label"></span>
-              <span class="heatmap-day-label">Mon</span>
-              <span class="heatmap-day-label"></span>
-              <span class="heatmap-day-label">Wed</span>
-              <span class="heatmap-day-label"></span>
-              <span class="heatmap-day-label">Fri</span>
-              <span class="heatmap-day-label"></span>
-            </div>
-            <div class="heatmap-grid" id="heatmapGrid"></div>
-          </div>
+        <div class="heatmap-svg-container" id="heatmapSvgContainer">
+          <svg id="heatmapSvg" viewBox="0 0 920 144" class="heatmap-svg" preserveAspectRatio="xMinYMin meet"></svg>
         </div>
       </div>
 

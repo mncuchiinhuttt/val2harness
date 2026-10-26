@@ -12,16 +12,6 @@ type UsageRecord struct {
 	StatusCode       int    `json:"status_code"`
 }
 
-type HeatmapCell struct {
-	Date      string `json:"date"` // YYYY-MM-DD
-	Count     int    `json:"count"`
-	Tokens    int    `json:"tokens"`
-	Level     int    `json:"level"` // 0 to 4
-	DayOfWeek int    `json:"day_of_week"`
-	Month     string `json:"month,omitempty"`
-	IsFuture  bool   `json:"is_future,omitempty"`
-}
-
 type ModelUsageStat struct {
 	Model            string `json:"model"`
 	Requests         int    `json:"requests"`
@@ -38,6 +28,8 @@ type AnalyticsSummary struct {
 	ActiveDays       int              `json:"active_days"`
 	AvgLatencyMs     int64            `json:"avg_latency_ms"`
 	ModelsBreakdown  []ModelUsageStat `json:"models_breakdown"`
-	Heatmap          []HeatmapCell    `json:"heatmap"`
+	DailyRecords     map[string]int   `json:"daily_records"`
+	DailyTokens      map[string]int   `json:"daily_tokens"`
+	AvailableYears   []int            `json:"available_years"`
 	RecentLogs       []UsageRecord    `json:"recent_logs"`
 }
