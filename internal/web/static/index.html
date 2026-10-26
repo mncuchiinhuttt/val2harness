@@ -53,18 +53,19 @@
     </div>
 
     <div class="card">
-      <div class="card-title">OMP Integration</div>
+      <div class="card-title">Harness Integrations & Sync</div>
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <button id="syncOmpBtn" class="btn">Sync Models to ~/.omp/models.yml</button>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+          <button id="syncAllBtn" class="btn">Sync All Harnesses (OMP, Pi, OpenCode, Continue)</button>
+          <button id="syncOmpBtn" class="btn btn-secondary">Sync OMP Only</button>
           <button id="exportChatsBtn" class="btn btn-secondary">Export Chat History</button>
-          <span id="ompStatus" class="value" style="font-size: 0.8125rem; color: var(--text-muted);"></span>
         </div>
-        <div class="code-box" id="ompSnippet">providers:
-  rmit-val:
-    baseUrl: http://127.0.0.1:8080/v1
-    apiKey: rmit-val-proxy
-    api: openai-completions</div>
+        <div id="ompStatus" class="value" style="font-size: 0.8125rem; color: var(--accent);"></div>
+        <div class="label" style="margin-top: 0.5rem;">Shell Environment Variables (Claude Code, Cursor, Aider, zcode)</div>
+        <div class="code-box" id="envSnippet">export OPENAI_BASE_URL="http://127.0.0.1:8765/v1"
+export OPENAI_API_KEY="rmit-val-key"
+export ANTHROPIC_BASE_URL="http://127.0.0.1:8765"
+export ANTHROPIC_API_KEY="rmit-val-key"</div>
       </div>
     </div>
 

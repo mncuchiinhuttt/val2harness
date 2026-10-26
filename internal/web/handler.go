@@ -11,6 +11,7 @@ import (
 	"val2harness/internal/config"
 	"val2harness/internal/exporter"
 	"val2harness/internal/omp"
+	valSync "val2harness/internal/sync"
 	"val2harness/internal/valclient"
 )
 
@@ -107,6 +108,25 @@ func RegisterWebRoutes(mux *http.ServeMux, cfg *config.Config, client *valclient
 			"path":   path,
 		})
 	})
+	mux.HandleFunc("/api/local/sync-all", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		proxyBaseURL := "http://" + cfg.ListenAddr
+		results := valSync.SyncAll(r.Context(), client, proxyBaseURL, cfg.APIKey)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"status":  "ok",
+			"results": results,
+		})
+	})
+
+	mux.HandleFunc("/api/local/env", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte(valSync.GenerateEnvSnippet(cfg.ListenAddr)))
+	})
+
 
 	mux.HandleFunc("/api/local/export", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

@@ -41,6 +41,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/models", s.handleModels)
 	s.mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
 	s.mux.HandleFunc("/chat/completions", s.handleChatCompletions)
+	s.mux.HandleFunc("/v1/messages", s.handleMessages)
+	s.mux.HandleFunc("/messages", s.handleMessages)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

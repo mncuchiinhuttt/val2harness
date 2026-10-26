@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const tokenInput = document.getElementById("tokenInput");
   const saveTokenBtn = document.getElementById("saveTokenBtn");
   const bookmarkletBtn = document.getElementById("bookmarkletBtn");
+  const syncAllBtn = document.getElementById("syncAllBtn");
   const syncOmpBtn = document.getElementById("syncOmpBtn");
   const exportChatsBtn = document.getElementById("exportChatsBtn");
   const ompStatus = document.getElementById("ompStatus");
@@ -113,6 +114,25 @@ document.addEventListener("DOMContentLoaded", () => {
       syncOmpBtn.textContent = "Sync Models to ~/.omp/models.yml";
     }
   });
+  if (syncAllBtn) {
+    syncAllBtn.addEventListener("click", async () => {
+      try {
+        syncAllBtn.textContent = "Syncing All...";
+        const res = await fetch("/api/local/sync-all", { method: "POST" });
+        const data = await res.json();
+        if (res.ok && data.results) {
+          const summary = data.results.map(r => r.Error ? `${r.Harness}: Failed` : `${r.Harness}: OK (${r.Count})`).join(" | ");
+          ompStatus.textContent = summary;
+        } else {
+          ompStatus.textContent = "Sync failed";
+        }
+      } catch (e) {
+        ompStatus.textContent = "Error: " + e.message;
+      } finally {
+        syncAllBtn.textContent = "Sync All Harnesses (OMP, Pi, OpenCode, Continue)";
+      }
+    });
+  }
 
   exportChatsBtn.addEventListener("click", async () => {
     try {
