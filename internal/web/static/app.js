@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const toastContainer = document.getElementById("toastContainer");
   const sessionBadge = document.getElementById("sessionBadge");
-  const sessionBadgeText = document.getElementById("sessionBadgeText");
   const daemonBadge = document.getElementById("daemonBadge");
   const navLoginBtn = document.getElementById("navLoginBtn");
   const navLogoutBtn = document.getElementById("navLogoutBtn");
@@ -10,19 +10,52 @@ document.addEventListener("DOMContentLoaded", () => {
   const sessionStatusHeader = document.getElementById("sessionStatusHeader");
   const sessionStatusSub = document.getElementById("sessionStatusSub");
   const modelsCount = document.getElementById("modelsCount");
-  const modelSelect = document.getElementById("modelSelect");
-  const syncAllBtn = document.getElementById("syncAllBtn");
-  const syncOmpBtn = document.getElementById("syncOmpBtn");
-  const exportChatsBtn = document.getElementById("exportChatsBtn");
-  const syncStatus = document.getElementById("syncStatus");
-  const copyEnvBtn = document.getElementById("copyEnvBtn");
-  const bookmarkletBtn = document.getElementById("bookmarkletBtn");
-  const manualTokenInput = document.getElementById("manualTokenInput");
-  const saveManualTokenBtn = document.getElementById("saveManualTokenBtn");
   const listenAddrInput = document.getElementById("listenAddrInput");
+  const copyBookmarkletBtn = document.getElementById("copyBookmarkletBtn");
+  const copyEnvBtn = document.getElementById("copyEnvBtn");
+  const clearChatBtn = document.getElementById("clearChatBtn");
   const sendChatBtn = document.getElementById("sendChatBtn");
   const chatInput = document.getElementById("chatInput");
   const chatHistory = document.getElementById("chatHistory");
+  const exportChatsBtn = document.getElementById("exportChatsBtn");
+
+  // Custom Select DOM
+  const selectTriggerBtn = document.getElementById("selectTriggerBtn");
+  const selectedModelLabel = document.getElementById("selectedModelLabel");
+  const selectDropdownMenu = document.getElementById("selectDropdownMenu");
+  const modelSearchInput = document.getElementById("modelSearchInput");
+  const selectOptionsList = document.getElementById("selectOptionsList");
+
+  let allModels = [];
+  let currentModel = "anthropic-claude-opus-4-7";
+
+  function showToast({ title, description, variant = "info" }) {
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${variant}`;
+    let iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    if (variant === "success") {
+      iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+    } else if (variant === "error") {
+      iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+    }
+    toast.innerHTML = `<div class="toast-icon">${iconSvg}</div><div class="toast-content"><div class="toast-title">${title}</div>${description ? `<div class="toast-desc">${description}</div>` : "" }</div>`;
+    toastContainer.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add("toast-exit");
+      setTimeout(() => toast.remove(), 250);
+    }, 3200);
+  }
+
+  // Tabs Switching
+  document.querySelectorAll(".tab-trigger").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-trigger").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+      btn.classList.add("active");
+      const target = document.getElementById(btn.getAttribute("data-tab"));
+      if (target) target.classList.add("active");
+    });
+  });
 
   async function loadStatus() {
     try {
@@ -60,90 +93,172 @@ document.addEventListener("DOMContentLoaded", () => {
         daemonBadge.textContent = "Daemon: Stopped";
       }
 
+      loadHarnesses();
       loadModels();
     } catch (e) {
-      sessionBadge.className = "badge badge-warning";
-      sessionBadgeText.textContent = "Server Offline";
+      showToast({ title: "Gateway Offline", description: "Could not reach local server.", variant: "error" });
     }
   }
 
+  async function loadHarnesses() {
+    try {
+      const res = await fetch("/api/local/harnesses");
+      const list = await res.json();
+      list.forEach((h) => {
+        const badge = document.getElementById(`badge-${h.id}`);
+        const restoreBtn = document.getElementById(`restore-${h.id}-btn`);
+        if (badge) {
+          badge.textContent = h.has_backup ? "Backup Ready" : "Original";
+          badge.className = h.has_backup ? "badge badge-success" : "badge badge-neutral";
+        }
+        if (restoreBtn) {
+          restoreBtn.disabled = !h.has_backup;
+        }
+      });
+    } catch (e) {}
+  }
+
+  ["omp", "pi", "opencode", "continue"].forEach((id) => {
+    const syncBtn = document.getElementById(`sync-${id}-btn`);
+    const restoreBtn = document.getElementById(`restore-${id}-btn`);
+    if (syncBtn) {
+      syncBtn.addEventListener("click", async () => {
+        syncBtn.textContent = "Syncing...";
+        try {
+          const res = await fetch("/api/local/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ harness: id }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showToast({ title: `${id.toUpperCase()} Synced`, description: `Synced ${data.count} models to ${data.path}`, variant: "success" });
+            loadHarnesses();
+          } else {
+            showToast({ title: "Sync Failed", description: data.error, variant: "error" });
+          }
+        } catch (e) {
+          showToast({ title: "Network Error", description: e.message, variant: "error" });
+        } finally {
+          syncBtn.textContent = `Sync ${id.toUpperCase()}`;
+        }
+      });
+    }
+
+    if (restoreBtn) {
+      restoreBtn.addEventListener("click", async () => {
+        restoreBtn.textContent = "Resetting...";
+        try {
+          const res = await fetch("/api/local/restore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ harness: id }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showToast({ title: `${id.toUpperCase()} Restored`, description: `Restored original configuration at ${data.path}`, variant: "success" });
+            loadHarnesses();
+          } else {
+            showToast({ title: "Restore Failed", description: data.error, variant: "error" });
+          }
+        } catch (e) {
+          showToast({ title: "Network Error", description: e.message, variant: "error" });
+        } finally {
+          restoreBtn.textContent = "Reset to Backup";
+        }
+      });
+    }
+  });
+
+  // Custom Select Logic
   async function loadModels() {
     try {
       const res = await fetch("/v1/models");
       if (!res.ok) return;
       const data = await res.json();
-      const list = data.data || [];
-      modelsCount.textContent = list.length + " Models";
-
-      modelSelect.innerHTML = "";
-      list.forEach((m) => {
-        const opt = document.createElement("option");
-        opt.value = m.id;
-        opt.textContent = m.id;
-        if (m.id.includes("opus-4-7")) opt.selected = true;
-        modelSelect.appendChild(opt);
-      });
+      allModels = data.data || [];
+      modelsCount.textContent = allModels.length + " Models";
+      renderSelectOptions(allModels);
     } catch (e) {}
   }
 
+  function renderSelectOptions(list) {
+    selectOptionsList.innerHTML = "";
+    list.forEach((m) => {
+      const opt = document.createElement("div");
+      opt.className = `select-option ${m.id === currentModel ? "selected" : ""}`;
+      opt.innerHTML = `<span>${m.id}</span>${m.id === currentModel ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : ""}`;
+      opt.addEventListener("click", () => {
+        currentModel = m.id;
+        selectedModelLabel.textContent = m.id;
+        selectDropdownMenu.style.display = "none";
+        renderSelectOptions(allModels);
+        showToast({ title: "Model Selected", description: m.id, variant: "info" });
+      });
+      selectOptionsList.appendChild(opt);
+    });
+  }
+
+  selectTriggerBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isVisible = selectDropdownMenu.style.display === "flex";
+    selectDropdownMenu.style.display = isVisible ? "none" : "flex";
+    if (!isVisible) {
+      modelSearchInput.value = "";
+      modelSearchInput.focus();
+      renderSelectOptions(allModels);
+    }
+  });
+
+  modelSearchInput.addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const filtered = allModels.filter((m) => m.id.toLowerCase().includes(q));
+    renderSelectOptions(filtered);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!document.getElementById("modelSelectCustom").contains(e.target)) {
+      selectDropdownMenu.style.display = "none";
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") selectDropdownMenu.style.display = "none";
+  });
+
+  // Auth & SSO
   async function triggerLogin() {
     try {
       const res = await fetch("/api/local/login", { method: "POST" });
       const data = await res.json();
       window.open(data.url || "https://val.rmit.edu.au", "_blank");
-      syncStatus.textContent = "Login page opened. Complete sign-in on val.rmit.edu.au, then use 1-Click Bookmarklet or paste token.";
+      showToast({ title: "SSO Opened", description: "Complete sign-in on val.rmit.edu.au", variant: "info" });
     } catch (e) {
       window.open("https://val.rmit.edu.au", "_blank");
     }
   }
 
-  async function triggerLogout() {
-    await fetch("/api/local/logout", { method: "POST" });
-    loadStatus();
-  }
-
   navLoginBtn.addEventListener("click", triggerLogin);
   loginCardBtn.addEventListener("click", triggerLogin);
-  navLogoutBtn.addEventListener("click", triggerLogout);
-
-  saveManualTokenBtn.addEventListener("click", async () => {
-    const token = manualTokenInput.value.trim();
-    if (!token) return;
-    await fetch("/api/local/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
-    manualTokenInput.value = "";
+  navLogoutBtn.addEventListener("click", async () => {
+    await fetch("/api/local/logout", { method: "POST" });
+    showToast({ title: "Logged Out", description: "Session cleared successfully", variant: "info" });
     loadStatus();
   });
 
-  syncAllBtn.addEventListener("click", async () => {
-    syncAllBtn.textContent = "Syncing...";
-    try {
-      const res = await fetch("/api/local/sync-all", { method: "POST" });
-      const data = await res.json();
-      if (res.ok && data.results) {
-        syncStatus.textContent = data.results.map((r) => `${r.Harness.split(" ")[0]}: ${r.Error ? "Failed" : "OK (" + r.Count + ")"}`).join(" · ");
-      }
-    } catch (e) {
-      syncStatus.textContent = "Sync error: " + e.message;
-    } finally {
-      syncAllBtn.textContent = "Sync All Harnesses";
-    }
+  copyBookmarkletBtn.addEventListener("click", () => {
+    const host = window.location.origin;
+    const code = `javascript:(function(){const t=localStorage.getItem("token");if(!t){alert("No token found in localStorage");return;}fetch("${host}/api/local/token",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:t})}).then(r=>r.json()).then(d=>{alert("Token synced successfully to val2harness!");}).catch(e=>{alert("Failed: "+e);});})();`;
+    navigator.clipboard.writeText(code).then(() => {
+      showToast({ title: "Bookmarklet Copied", description: "Drag/click on val.rmit.edu.au tab to sync token", variant: "success" });
+    });
   });
 
-  syncOmpBtn.addEventListener("click", async () => {
-    syncOmpBtn.textContent = "Syncing...";
-    try {
-      const res = await fetch("/api/local/sync-omp", { method: "POST" });
-      const data = await res.json();
-      syncStatus.textContent = `Synced ${data.count} models to ${data.path}`;
-    } catch (e) {
-      syncStatus.textContent = "OMP sync error: " + e.message;
-    } finally {
-      syncOmpBtn.textContent = "Sync OMP Only";
-    }
+  copyEnvBtn.addEventListener("click", () => {
+    const snippet = document.getElementById("envSnippet").textContent;
+    navigator.clipboard.writeText(snippet).then(() => {
+      showToast({ title: "Copied to Clipboard", description: "Universal shell environment exported", variant: "success" });
+    });
   });
 
   exportChatsBtn.addEventListener("click", async () => {
@@ -151,46 +266,32 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch("/api/local/export", { method: "POST" });
       const data = await res.json();
-      syncStatus.textContent = `Exported ${data.count} chats to ${data.dir}/`;
+      showToast({ title: "Export Complete", description: `Exported ${data.count} chats to ${data.dir}/`, variant: "success" });
     } catch (e) {
-      syncStatus.textContent = "Export error: " + e.message;
+      showToast({ title: "Export Failed", description: e.message, variant: "error" });
     } finally {
-      exportChatsBtn.textContent = "Export Chat History";
+      exportChatsBtn.textContent = "Export All Chats";
     }
   });
 
-  copyEnvBtn.addEventListener("click", () => {
-    const snippet = document.getElementById("envSnippet").textContent;
-    navigator.clipboard.writeText(snippet).then(() => {
-      copyEnvBtn.textContent = "Copied!";
-      setTimeout(() => (copyEnvBtn.textContent = "Copy Shell Export"), 2000);
-    });
+  clearChatBtn.addEventListener("click", () => {
+    chatHistory.innerHTML = '<div class="chat-bubble bubble-assistant">Chat history cleared. Send a prompt to start testing.</div>';
+    showToast({ title: "Chat Cleared", description: "Playground transcript reset", variant: "info" });
   });
 
-  bookmarkletBtn.addEventListener("click", () => {
-    const host = window.location.origin;
-    const code = `javascript:(function(){const t=localStorage.getItem("token");if(!t){alert("No token found in localStorage");return;}fetch("${host}/api/local/token",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:t})}).then(r=>r.json()).then(d=>{alert("Token synced successfully to val2harness!");}).catch(e=>{alert("Failed: "+e);});})();`;
-    navigator.clipboard.writeText(code).then(() => {
-      bookmarkletBtn.textContent = "Bookmarklet Copied!";
-      setTimeout(() => (bookmarkletBtn.textContent = "Copy 1-Click Bookmarklet"), 2000);
-    });
-  });
-
+  // Streaming Chat
   sendChatBtn.addEventListener("click", async () => {
-    const model = modelSelect.value;
     const prompt = chatInput.value.trim();
-    if (!model || !prompt) return;
+    if (!prompt) return;
 
     chatInput.value = "";
     sendChatBtn.disabled = true;
 
-    // User message bubble
     const userBubble = document.createElement("div");
     userBubble.className = "chat-bubble bubble-user";
     userBubble.textContent = prompt;
     chatHistory.appendChild(userBubble);
 
-    // Assistant streaming bubble
     const assistantBubble = document.createElement("div");
     assistantBubble.className = "chat-bubble bubble-assistant";
     assistantBubble.textContent = "● Thinking...";
@@ -202,7 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: model,
+          model: currentModel,
           messages: [{ role: "user", content: prompt }],
           stream: true,
         }),
@@ -210,6 +311,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!res.ok) {
         assistantBubble.textContent = "Error: Upstream request failed with status " + res.status;
+        showToast({ title: "Request Failed", description: "Status code: " + res.status, variant: "error" });
         return;
       }
 
@@ -240,6 +342,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (e) {
       assistantBubble.textContent = "Stream error: " + e.message;
+      showToast({ title: "Stream Error", description: e.message, variant: "error" });
     } finally {
       sendChatBtn.disabled = false;
     }

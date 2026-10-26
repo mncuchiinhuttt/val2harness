@@ -28,122 +28,191 @@
       </div>
     </header>
 
-    <!-- Bento Metric Cards (Full Width) -->
-    <div class="bento-grid">
-      <div class="stat-card">
-        <div class="stat-label">Upstream Val Service</div>
-        <div class="stat-value" id="valUpstream">val.rmit.edu.au</div>
-        <div class="stat-sub">AWS Bedrock · Enterprise Claude Tier</div>
+    <!-- Navigation Tabs Header -->
+    <div class="tabs-header">
+      <div class="tabs-list">
+        <button class="tab-trigger active" data-tab="tab-overview">Overview & Status</button>
+        <button class="tab-trigger" data-tab="tab-harnesses">Sync Harnesses</button>
+        <button class="tab-trigger" data-tab="tab-playground">Model Playground</button>
+        <button class="tab-trigger" data-tab="tab-exports">Chat History</button>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Local Gateway Address</div>
-        <div class="stat-value" id="localProxy">127.0.0.1:8765</div>
-        <div class="stat-sub">OpenAI (/v1) + Anthropic (/v1/messages)</div>
+      <button id="copyBookmarkletBtn" class="btn btn-secondary btn-sm">Copy 1-Click Bookmarklet</button>
+    </div>
+
+    <!-- TAB 1: OVERVIEW & STATUS -->
+    <div class="tab-panel active" id="tab-overview">
+      <div class="bento-grid">
+        <div class="stat-card">
+          <div class="stat-label">Upstream Val Service</div>
+          <div class="stat-value" id="valUpstream">val.rmit.edu.au</div>
+          <div class="stat-sub">AWS Bedrock · Enterprise Claude Tier</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Local Gateway Address</div>
+          <div class="stat-value" id="localProxy">127.0.0.1:8765</div>
+          <div class="stat-sub">OpenAI (/v1) + Anthropic (/v1/messages)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Available Models</div>
+          <div class="stat-value" id="modelsCount">53 Models</div>
+          <div class="stat-sub">Opus 4.7, Opus 5, Sonnet 5, GPT-5/6</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Session Status</div>
+          <div class="stat-value" id="accountName">Checking...</div>
+          <div class="stat-sub" id="tokenExp">Loading expiration...</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Available Models</div>
-        <div class="stat-value" id="modelsCount">53 Models</div>
-        <div class="stat-sub">Opus 4.7, Opus 5, Sonnet 5, GPT-5/6</div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Authentication & Single Sign-On</div>
+          <span class="badge badge-neutral">Microsoft OAuth · 24h JWT Session</span>
+        </div>
+        <div style="background: var(--surface-hover); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+          <div>
+            <div style="font-weight: 600; font-size: 0.95rem;" id="sessionStatusHeader">RMIT Microsoft Authentication</div>
+            <div style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem;" id="sessionStatusSub">Authenticate with your RMIT student or staff account to access all Claude Opus and GPT models.</div>
+          </div>
+          <button id="loginCardBtn" class="btn">Sign In with RMIT SSO</button>
+        </div>
+
+        <details style="font-size: 0.8125rem; color: var(--text-muted);">
+          <summary style="cursor: pointer; font-weight: 500; margin-bottom: 0.5rem;">Developer Settings: Manual Token Override</summary>
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+            <input type="text" id="manualTokenInput" placeholder="Paste raw JWT Bearer token here...">
+            <button id="saveManualTokenBtn" class="btn btn-secondary">Save Token</button>
+          </div>
+        </details>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Session Status</div>
-        <div class="stat-value" id="accountName">Not Signed In</div>
-        <div class="stat-sub" id="tokenExp">Click Sign In to authenticate</div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Local Daemon Settings</div>
+          <span id="daemonStatusText" style="font-size: 0.8125rem; color: var(--text-muted);"></span>
+        </div>
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.5rem; flex: 1; min-width: 240px;">
+            <input type="text" id="listenAddrInput" placeholder="127.0.0.1:8765">
+            <button id="updatePortBtn" class="btn btn-secondary">Update Port</button>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button id="startDaemonBtn" class="btn btn-secondary">Start Daemon</button>
+            <button id="stopDaemonBtn" class="btn btn-secondary">Stop Daemon</button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Main 2-Column Responsive Layout -->
-    <div class="layout-cols">
-      <!-- Left Column: Harness Integrations & Controls -->
-      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-        
-        <!-- Harness Sync Hub -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Harness Integrations & Sync</div>
-            <span class="badge badge-neutral">OMP · Pi · OpenCode · Continue</span>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-              <button id="syncAllBtn" class="btn">Sync All Harnesses</button>
-              <button id="syncOmpBtn" class="btn btn-secondary">Sync OMP Only</button>
-              <button id="exportChatsBtn" class="btn btn-secondary">Export Chat History</button>
-            </div>
-            
-            <div id="syncStatus" style="font-size: 0.8125rem; color: var(--accent); min-height: 1.25rem;"></div>
-
+    <!-- TAB 2: SYNC HARNESSES (INDIVIDUAL CONTROLS + RESTORE BACKUP) -->
+    <div class="tab-panel" id="tab-harnesses">
+      <div class="harness-grid">
+        <!-- OMP Card -->
+        <div class="harness-card">
+          <div class="harness-card-header">
             <div>
-              <div class="stat-label" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Universal Shell Environment (Claude Code, Cursor, zcode, Aider)</span>
-                <button id="copyEnvBtn" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Copy Shell Export</button>
-              </div>
-              <div class="code-box" id="envSnippet">export OPENAI_BASE_URL="http://127.0.0.1:8765/v1"
+              <div class="harness-name">OMP</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Coding Agent Harness</div>
+            </div>
+            <span class="badge badge-neutral" id="badge-omp">Checking...</span>
+          </div>
+          <div class="harness-path">~/.omp/models.yml</div>
+          <div class="harness-actions">
+            <button class="btn btn-sm" id="sync-omp-btn">Sync OMP</button>
+            <button class="btn btn-secondary btn-sm" id="restore-omp-btn" disabled>Reset to Backup</button>
+          </div>
+        </div>
+
+        <!-- Pi Harness Card -->
+        <div class="harness-card">
+          <div class="harness-card-header">
+            <div>
+              <div class="harness-name">Pi Harness</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">@oh-my-pi Coding Agent</div>
+            </div>
+            <span class="badge badge-neutral" id="badge-pi">Checking...</span>
+          </div>
+          <div class="harness-path">~/.pi/models.json</div>
+          <div class="harness-actions">
+            <button class="btn btn-sm" id="sync-pi-btn">Sync Pi</button>
+            <button class="btn btn-secondary btn-sm" id="restore-pi-btn" disabled>Reset to Backup</button>
+          </div>
+        </div>
+
+        <!-- OpenCode Card -->
+        <div class="harness-card">
+          <div class="harness-card-header">
+            <div>
+              <div class="harness-name">OpenCode</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">AI SDK OpenCode CLI</div>
+            </div>
+            <span class="badge badge-neutral" id="badge-opencode">Checking...</span>
+          </div>
+          <div class="harness-path">~/.config/opencode/opencode.json</div>
+          <div class="harness-actions">
+            <button class="btn btn-sm" id="sync-opencode-btn">Sync OpenCode</button>
+            <button class="btn btn-secondary btn-sm" id="restore-opencode-btn" disabled>Reset to Backup</button>
+          </div>
+        </div>
+
+        <!-- Continue Card -->
+        <div class="harness-card">
+          <div class="harness-card-header">
+            <div>
+              <div class="harness-name">Continue</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">VS Code / JetBrains / Cursor Extension</div>
+            </div>
+            <span class="badge badge-neutral" id="badge-continue">Checking...</span>
+          </div>
+          <div class="harness-path">~/.continue/config.yaml</div>
+          <div class="harness-actions">
+            <button class="btn btn-sm" id="sync-continue-btn">Sync Continue</button>
+            <button class="btn btn-secondary btn-sm" id="restore-continue-btn" disabled>Reset to Backup</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Universal Shell Environment -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Universal Shell Environment (Claude Code, Cursor, zcode, Aider)</div>
+          <button id="copyEnvBtn" class="btn btn-secondary btn-sm">Copy Shell Export</button>
+        </div>
+        <div class="code-box" id="envSnippet">export OPENAI_BASE_URL="http://127.0.0.1:8765/v1"
 export OPENAI_API_KEY="rmit-val-key"
 export ANTHROPIC_BASE_URL="http://127.0.0.1:8765"
 export ANTHROPIC_API_KEY="rmit-val-key"</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Session Management & Bookmarklet -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Authentication & Single Sign-On</div>
-            <button id="bookmarkletBtn" class="btn btn-secondary" style="font-size: 0.75rem;">Copy 1-Click Bookmarklet</button>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 0.85rem;">
-            <div style="background: var(--surface-hover); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <div style="font-weight: 600; font-size: 0.875rem;" id="sessionStatusHeader">RMIT Microsoft Authentication</div>
-                <div style="font-size: 0.8125rem; color: var(--text-muted);" id="sessionStatusSub">Sign in with your RMIT student or staff account to refresh your 24-hour token.</div>
-              </div>
-              <button id="loginCardBtn" class="btn">Sign In with RMIT SSO</button>
-            </div>
-
-            <details style="font-size: 0.8125rem; color: var(--text-muted);">
-              <summary style="cursor: pointer; font-weight: 500; margin-bottom: 0.5rem;">Developer Settings: Manual Token Override</summary>
-              <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                <input type="text" id="manualTokenInput" placeholder="Paste raw JWT Bearer token here...">
-                <button id="saveManualTokenBtn" class="btn btn-secondary">Save</button>
-              </div>
-            </details>
-          </div>
-        </div>
-
-        <!-- Gateway Daemon Controls -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Gateway Server Settings</div>
-            <span id="daemonStatusText" style="font-size: 0.8125rem; color: var(--text-muted);"></span>
-          </div>
-          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <div style="display: flex; gap: 0.5rem; flex: 1; min-width: 200px;">
-              <input type="text" id="listenAddrInput" placeholder="127.0.0.1:8765">
-              <button id="updatePortBtn" class="btn btn-secondary">Save Port</button>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-              <button id="startDaemonBtn" class="btn btn-secondary">Start Daemon</button>
-              <button id="stopDaemonBtn" class="btn btn-secondary">Stop Daemon</button>
-            </div>
-          </div>
-        </div>
-
       </div>
+    </div>
 
-      <!-- Right Column: Live Model Playground & Real-Time Stream -->
+    <!-- TAB 3: MODEL PLAYGROUND (SHADCN CUSTOM SELECT & LIVE STREAM) -->
+    <div class="tab-panel" id="tab-playground">
       <div class="card">
         <div class="card-header">
           <div class="card-title">Live Model Playground</div>
-          <select id="modelSelect" style="max-width: 240px; font-weight: 500;">
-            <option value="">Loading models...</option>
-          </select>
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <!-- Custom Shadcn Select Component -->
+            <div class="custom-select" id="modelSelectCustom">
+              <button type="button" class="select-trigger" id="selectTriggerBtn">
+                <span id="selectedModelLabel">anthropic-claude-opus-4-7</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="select-dropdown" id="selectDropdownMenu" style="display: none;">
+                <div class="select-search-wrap">
+                  <input type="text" class="select-search-input" id="modelSearchInput" placeholder="Filter 53 models...">
+                </div>
+                <div class="select-options-list" id="selectOptionsList">
+                  <!-- Injected by JavaScript -->
+                </div>
+              </div>
+            </div>
+            <button id="clearChatBtn" class="btn btn-secondary btn-sm">Clear</button>
+          </div>
         </div>
 
         <div class="chat-container">
           <div class="chat-history" id="chatHistory">
-            <div class="chat-bubble bubble-assistant">Welcome to val2harness. Select an RMIT Val model above and send a test prompt to verify live streaming completions.</div>
+            <div class="chat-bubble bubble-assistant">Welcome to val2harness playground. Choose an RMIT Val model from the select dropdown above and send a test prompt to observe real-time Server-Sent Events (SSE) streaming.</div>
           </div>
 
           <div class="chat-input-bar">
@@ -153,7 +222,26 @@ export ANTHROPIC_API_KEY="rmit-val-key"</div>
         </div>
       </div>
     </div>
+
+    <!-- TAB 4: CHAT HISTORY & EXPORTS -->
+    <div class="tab-panel" id="tab-exports">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Export Val Conversations</div>
+          <span class="badge badge-neutral">Markdown (.md) + JSON (.json)</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <p style="font-size: 0.875rem; color: var(--text-muted);">Export your entire RMIT Val chat history into structured local Markdown and JSON files under <code>./exports/</code> for offline search and archiving.</p>
+          <div style="display: flex; gap: 0.75rem;">
+            <button id="exportChatsBtn" class="btn">Export All Chats</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- Sonner/Shadcn Style Toast Notifications Container -->
+  <div id="toastContainer" class="toast-container"></div>
 
   <script src="/static/app.js"></script>
 </body>
