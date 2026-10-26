@@ -36,6 +36,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const stopDaemonBtn = document.getElementById("stopDaemonBtn");
   const manualTokenInput = document.getElementById("manualTokenInput");
   const saveManualTokenBtn = document.getElementById("saveManualTokenBtn");
+  const checkQuotaBtn = document.getElementById("checkQuotaBtn");
+  const quotaStatusText = document.getElementById("quotaStatusText");
+  const quotaCountdownText = document.getElementById("quotaCountdownText");
+  const melbourneTimeText = document.getElementById("melbourneTimeText");
   let selectedYear = new Date().getFullYear();
   let currentAnalyticsData = null;
   const modelsBreakdownBody = document.getElementById("modelsBreakdownBody");
@@ -151,6 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       loadHarnesses();
       loadModels();
+      loadQuota(false);
     } catch (e) {
       showToast({ title: "Gateway Offline", description: "Could not reach local server.", variant: "error" });
     }
@@ -536,6 +541,36 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast({ title: "Error", description: e.message, variant: "error" });
       }
     });
+  }
+
+  async function loadQuota(isManual = false) {
+    try {
+      if (isManual) showToast({ title: "Probing Quota", description: "Sending 1-token test probe to RMIT Val...", variant: "info" });
+      const res = await fetch("/api/local/quota");
+      const data = await res.json();
+      if (res.ok) {
+        if (data.status === "exceeded") {
+          quotaStatusText.innerHTML = '<span style="color: #dc2626;">Exceeded (Limit Reached)</span>';
+        } else {
+          quotaStatusText.innerHTML = '<span style="color: #059669;">Active & Ready</span>';
+        }
+        quotaCountdownText.textContent = data.countdown + " remaining";
+        melbourneTimeText.textContent = data.melbourne_time;
+        if (isManual) {
+          showToast({
+            title: data.status === "exceeded" ? "Daily Quota Exceeded" : "Daily Quota Active",
+            description: data.message + ` Resets in ${data.countdown}.`,
+            variant: data.status === "exceeded" ? "error" : "success",
+          });
+        }
+      }
+    } catch (e) {
+      if (isManual) showToast({ title: "Quota Check Failed", description: e.message, variant: "error" });
+    }
+  }
+
+  if (checkQuotaBtn) {
+    checkQuotaBtn.addEventListener("click", () => loadQuota(true));
   }
   // Auth & SSO
   async function triggerLogin() {

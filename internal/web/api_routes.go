@@ -159,6 +159,16 @@ func registerHarnessRoutes(mux *http.ServeMux, cfg *config.Config, client *valcl
 		}
 		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "version": v})
 	})
+	mux.HandleFunc("/api/local/quota", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		q, err := client.CheckQuota(r.Context())
+		if err != nil {
+			w.WriteHeader(http.StatusBadGateway)
+			json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(q)
+	})
 
 	registerDaemonRoutes(mux, cfg)
 }

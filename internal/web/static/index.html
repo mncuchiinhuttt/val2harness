@@ -18,11 +18,8 @@
         </div>
       </div>
       <div class="nav-actions">
-        <div id="sessionBadge" class="badge badge-warning">
-          <span class="pulse-dot pulse-inactive"></span>
-          <span id="sessionBadgeText">Checking Session...</span>
-        </div>
-        <div id="daemonBadge" class="badge badge-neutral">Daemon: ...</div>
+        <div id="sessionBadge" class="badge badge-neutral"><span class="skeleton" style="width: 84px; height: 12px;"></span></div>
+        <div id="daemonBadge" class="badge badge-neutral"><span class="skeleton" style="width: 72px; height: 12px;"></span></div>
         <button id="versionBadgeBtn" class="badge badge-neutral" style="cursor: pointer; font-family: var(--font-mono);" title="Click to check for updates">
           <span id="versionText">v1.0.0</span>
         </button>
@@ -64,8 +61,8 @@
         </div>
         <div class="stat-card">
           <div class="stat-label">Session Status</div>
-          <div class="stat-value" id="accountName">Checking...</div>
-          <div class="stat-sub" id="tokenExp">Loading expiration...</div>
+          <div class="stat-value" id="accountName"><span class="skeleton" style="width: 140px; height: 18px;"></span></div>
+          <div class="stat-sub" id="tokenExp"><span class="skeleton" style="width: 170px; height: 12px;"></span></div>
         </div>
       </div>
 
@@ -76,8 +73,8 @@
         </div>
         <div style="background: var(--surface-hover); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
           <div>
-            <div style="font-weight: 600; font-size: 0.95rem;" id="sessionStatusHeader">RMIT Microsoft Authentication</div>
-            <div style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem;" id="sessionStatusSub">Authenticate with your RMIT student or staff account to access all Claude Opus and GPT models.</div>
+            <div style="font-weight: 600; font-size: 0.95rem;" id="sessionStatusHeader"><span class="skeleton" style="width: 160px; height: 16px;"></span></div>
+            <div style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem;" id="sessionStatusSub"><span class="skeleton" style="width: 260px; height: 12px;"></span></div>
           </div>
           <button id="loginCardBtn" class="btn">Sign In with RMIT SSO</button>
         </div>
@@ -89,6 +86,27 @@
             <button id="saveManualTokenBtn" class="btn btn-secondary">Save Token</button>
           </div>
         </details>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Daily Quota & Reset Monitor</div>
+          <button id="checkQuotaBtn" class="btn btn-secondary btn-sm">Probe Quota</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; align-items: center;">
+          <div>
+            <div class="stat-label">Quota Status</div>
+            <div id="quotaStatusText" style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);"><span class="skeleton" style="width: 130px; height: 16px;"></span></div>
+          </div>
+          <div>
+            <div class="stat-label">Next 4:00 AM Reset</div>
+            <div id="quotaCountdownText" style="font-weight: 700; font-size: 0.95rem; color: var(--accent);"><span class="skeleton" style="width: 90px; height: 16px;"></span></div>
+          </div>
+          <div>
+            <div class="stat-label">Melbourne Time</div>
+            <div id="melbourneTimeText" style="font-weight: 600; font-size: 0.875rem; color: var(--text-muted);"><span class="skeleton" style="width: 80px; height: 14px;"></span></div>
+          </div>
+        </div>
       </div>
 
       <div class="card">

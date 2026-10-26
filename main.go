@@ -41,6 +41,8 @@ func main() {
 		runToken(args)
 	case "export":
 		runExport(args)
+	case "quota":
+		runQuota()
 	case "update":
 		runUpdate(args)
 	case "version", "-v", "--version":
@@ -71,6 +73,7 @@ Commands:
   sync        Sync models to ALL harnesses (OMP, Pi, OpenCode, Continue)
   env         Print shell export variables (for Claude Code, Cursor, Aider, zcode)
   update      Check and install latest val2harness release
+  quota       Probe RMIT Val daily quota status and reset countdown
   token       View or update the RMIT Val JWT token
   export      Export chat conversations to Markdown and JSON
   help        Show this help message
