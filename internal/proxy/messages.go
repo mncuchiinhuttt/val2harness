@@ -74,59 +74,64 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !req.Stream {
-		var oaiResp struct {
-			Choices []struct {
-				Message struct {
-					Content   string `json:"content"`
-					ToolCalls []struct {
-						ID       string `json:"id"`
-						Function struct {
-							Name      string `json:"name"`
-							Arguments string `json:"arguments"`
-						} `json:"function"`
-					} `json:"tool_calls"`
-				} `json:"message"`
-				FinishReason string `json:"finish_reason"`
-			} `json:"choices"`
+	contentType := upstreamResp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "text/event-stream") {
+		respBody, _ := io.ReadAll(upstreamResp.Body)
+		var errCheck struct {
+			Error *struct {
+				Message string `json:"message"`
+				Code    string `json:"code"`
+			} `json:"error"`
 		}
-		_ = json.NewDecoder(upstreamResp.Body).Decode(&oaiResp)
-		var contentBlocks []map[string]any
-		stopReason := "end_turn"
-
-		if len(oaiResp.Choices) > 0 {
-			ch := oaiResp.Choices[0]
-			if ch.Message.Content != "" {
-				contentBlocks = append(contentBlocks, map[string]any{"type": "text", "text": ch.Message.Content})
-			}
-			for _, tc := range ch.Message.ToolCalls {
-				var argsObj any
-				_ = json.Unmarshal([]byte(tc.Function.Arguments), &argsObj)
-				contentBlocks = append(contentBlocks, map[string]any{
-					"type":  "tool_use",
-					"id":    tc.ID,
-					"name":  tc.Function.Name,
-					"input": argsObj,
-				})
-			}
-			if len(ch.Message.ToolCalls) > 0 {
-				stopReason = "tool_use"
-			}
+		if json.Unmarshal(respBody, &errCheck) == nil && errCheck.Error != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write(formatAnthropicError(http.StatusTooManyRequests, errCheck.Error.Message))
+			return
 		}
 
-		outTok := 50
-		analytics.GetTracker().Record(upstreamModel, "anthropic", len(bodyBytes)/4, outTok, time.Since(start).Milliseconds(), upstreamResp.StatusCode)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"id":          fmt.Sprintf("msg_%d", time.Now().UnixNano()),
-			"type":        "message",
-			"role":        "assistant",
-			"model":       req.Model,
-			"content":     contentBlocks,
-			"stop_reason": stopReason,
-			"usage":       map[string]int{"input_tokens": len(bodyBytes) / 4, "output_tokens": outTok},
-		})
-		return
+		if !req.Stream {
+			var oaiResp struct {
+				Choices []struct {
+					Message struct {
+						Content   string `json:"content"`
+						ToolCalls []struct {
+							ID       string `json:"id"`
+							Function struct {
+								Name      string `json:"name"`
+								Arguments string `json:"arguments"`
+							} `json:"function"`
+						} `json:"tool_calls"`
+					} `json:"message"`
+				} `json:"choices"`
+			}
+			_ = json.Unmarshal(respBody, &oaiResp)
+			var contentBlocks []map[string]any
+			stopReason := "end_turn"
+			if len(oaiResp.Choices) > 0 {
+				ch := oaiResp.Choices[0]
+				if ch.Message.Content != "" {
+					contentBlocks = append(contentBlocks, map[string]any{"type": "text", "text": ch.Message.Content})
+				}
+				for _, tc := range ch.Message.ToolCalls {
+					var argsObj any
+					_ = json.Unmarshal([]byte(tc.Function.Arguments), &argsObj)
+					contentBlocks = append(contentBlocks, map[string]any{"type": "tool_use", "id": tc.ID, "name": tc.Function.Name, "input": argsObj})
+				}
+				if len(ch.Message.ToolCalls) > 0 {
+					stopReason = "tool_use"
+				}
+			}
+			outTok := 50
+			analytics.GetTracker().Record(upstreamModel, "anthropic", len(bodyBytes)/4, outTok, time.Since(start).Milliseconds(), upstreamResp.StatusCode)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": fmt.Sprintf("msg_%d", time.Now().UnixNano()), "type": "message", "role": "assistant",
+				"model": req.Model, "content": contentBlocks, "stop_reason": stopReason,
+				"usage": map[string]int{"input_tokens": len(bodyBytes) / 4, "output_tokens": outTok},
+			})
+			return
+		}
 	}
 
 	// Streaming SSE translation

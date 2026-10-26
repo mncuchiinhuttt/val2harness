@@ -58,24 +58,41 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	defer upstreamResp.Body.Close()
 
-	// Copy upstream response headers
 	contentType := upstreamResp.Header.Get("Content-Type")
-	if contentType != "" {
-		w.Header().Set("Content-Type", contentType)
-	}
-	if cc := upstreamResp.Header.Get("Cache-Control"); cc != "" {
-		w.Header().Set("Cache-Control", cc)
-	}
-
 	isStreaming := strings.Contains(contentType, "text/event-stream")
-	if isStreaming {
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Connection", "keep-alive")
-		w.Header().Set("X-Accel-Buffering", "no")
+
+	// If upstream returned JSON (error or non-streaming)
+	if !isStreaming {
+		respBody, readErr := io.ReadAll(upstreamResp.Body)
+		if readErr == nil {
+			var errCheck struct {
+				Error *struct {
+					Message string `json:"message"`
+					Code    string `json:"code"`
+				} `json:"error"`
+			}
+			if json.Unmarshal(respBody, &errCheck) == nil && errCheck.Error != nil {
+				w.Header().Set("Content-Type", "application/json")
+				statusCode := http.StatusTooManyRequests
+				if errCheck.Error.Code != "budget_exceeded" {
+					statusCode = http.StatusBadRequest
+				}
+				w.WriteHeader(statusCode)
+				w.Write(respBody)
+				return
+			}
+			w.Header().Set("Content-Type", contentType)
+			w.WriteHeader(upstreamResp.StatusCode)
+			w.Write(respBody)
+			return
+		}
 	}
 
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(upstreamResp.StatusCode)
-
 	flusher, canFlush := w.(http.Flusher)
 	buf := make([]byte, 4096)
 	for {
