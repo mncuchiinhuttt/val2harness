@@ -11,11 +11,19 @@ import (
 	"val2harness/internal/valclient"
 )
 
+type OMPCost struct {
+	Input      float64 `yaml:"input"`
+	Output     float64 `yaml:"output"`
+	CacheRead  float64 `yaml:"cacheRead"`
+	CacheWrite float64 `yaml:"cacheWrite"`
+}
+
 type OMPModel struct {
-	ID            string `yaml:"id"`
-	Name          string `yaml:"name"`
-	ContextWindow int    `yaml:"contextWindow,omitempty"`
-	MaxTokens     int    `yaml:"maxTokens,omitempty"`
+	ID            string  `yaml:"id"`
+	Name          string  `yaml:"name"`
+	ContextWindow int     `yaml:"contextWindow,omitempty"`
+	MaxTokens     int     `yaml:"maxTokens,omitempty"`
+	Cost          OMPCost `yaml:"cost"`
 }
 
 type OMPProvider struct {
@@ -110,6 +118,12 @@ func SyncModels(ctx context.Context, client *valclient.Client, proxyBaseURL, pro
 			Name:          m.Name,
 			ContextWindow: ctxWindow,
 			MaxTokens:     maxTok,
+			Cost: OMPCost{
+				Input:      0,
+				Output:     0,
+				CacheRead:  0,
+				CacheWrite: 0,
+			},
 		})
 	}
 

@@ -19,6 +19,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatHistory = document.getElementById("chatHistory");
   const exportChatsBtn = document.getElementById("exportChatsBtn");
 
+  // Analytics DOM
+  const statTotalReqs = document.getElementById("statTotalReqs");
+  const statTotalToks = document.getElementById("statTotalToks");
+  const statTokensSub = document.getElementById("statTokensSub");
+  const statActiveDays = document.getElementById("statActiveDays");
+  const statAvgLat = document.getElementById("statAvgLat");
+  const heatmapGrid = document.getElementById("heatmapGrid");
+  const modelsBreakdownBody = document.getElementById("modelsBreakdownBody");
+  const recentLogsBody = document.getElementById("recentLogsBody");
+
   // Custom Select DOM
   const selectTriggerBtn = document.getElementById("selectTriggerBtn");
   const selectedModelLabel = document.getElementById("selectedModelLabel");
@@ -52,8 +62,12 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll(".tab-trigger").forEach((b) => b.classList.remove("active"));
       document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
       btn.classList.add("active");
-      const target = document.getElementById(btn.getAttribute("data-tab"));
+      const tabId = btn.getAttribute("data-tab");
+      const target = document.getElementById(tabId);
       if (target) target.classList.add("active");
+      if (tabId === "tab-analytics") {
+        loadAnalytics();
+      }
     });
   });
 
@@ -95,9 +109,70 @@ document.addEventListener("DOMContentLoaded", () => {
 
       loadHarnesses();
       loadModels();
+      loadAnalytics();
     } catch (e) {
       showToast({ title: "Gateway Offline", description: "Could not reach local server.", variant: "error" });
     }
+  }
+
+  // Load Analytics & GitHub Heatmap
+  async function loadAnalytics() {
+    try {
+      const res = await fetch("/api/local/analytics");
+      if (!res.ok) return;
+      const data = await res.json();
+
+      statTotalReqs.textContent = data.total_requests.toLocaleString();
+      statTotalToks.textContent = data.total_tokens.toLocaleString();
+      statTokensSub.textContent = `Prompt: ${data.prompt_tokens.toLocaleString()} · Output: ${data.completion_tokens.toLocaleString()}`;
+      statActiveDays.textContent = `${data.active_days} Days`;
+      statAvgLat.textContent = `${data.avg_latency_ms} ms`;
+
+      // Render Heatmap
+      if (heatmapGrid && data.heatmap) {
+        heatmapGrid.innerHTML = "";
+        data.heatmap.forEach((cell) => {
+          const div = document.createElement("div");
+          div.className = "heatmap-cell";
+          div.setAttribute("data-level", cell.level);
+          const tText = cell.tokens.toLocaleString();
+          div.title = `${cell.date}: ${cell.count} requests (${tText} tokens)`;
+          div.addEventListener("click", () => {
+            showToast({ title: cell.date, description: `${cell.count} requests · ${tText} tokens burned`, variant: "info" });
+          });
+          heatmapGrid.appendChild(div);
+        });
+      }
+
+      // Render Models Breakdown
+      if (modelsBreakdownBody && data.models_breakdown) {
+        if (data.models_breakdown.length === 0) {
+          modelsBreakdownBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No model requests recorded yet.</td></tr>';
+        } else {
+          modelsBreakdownBody.innerHTML = "";
+          data.models_breakdown.forEach((m) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td><span style="font-weight: 600;">${m.model}</span></td><td>${m.requests.toLocaleString()}</td><td>${m.total_tokens.toLocaleString()}</td>`;
+            modelsBreakdownBody.appendChild(tr);
+          });
+        }
+      }
+
+      // Render Recent Logs
+      if (recentLogsBody && data.recent_logs) {
+        if (data.recent_logs.length === 0) {
+          recentLogsBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No requests logged yet.</td></tr>';
+        } else {
+          recentLogsBody.innerHTML = "";
+          data.recent_logs.forEach((r) => {
+            const tr = document.createElement("tr");
+            const timeStr = new Date(r.timestamp * 1000).toLocaleTimeString();
+            tr.innerHTML = `<td style="color: var(--text-muted);">${timeStr}</td><td>${r.model}</td><td>${r.total_tokens.toLocaleString()}</td><td>${r.latency_ms}ms</td>`;
+            recentLogsBody.appendChild(tr);
+          });
+        }
+      }
+    } catch (e) {}
   }
 
   async function loadHarnesses() {
@@ -340,6 +415,7 @@ document.addEventListener("DOMContentLoaded", () => {
           } catch (e) {}
         }
       }
+      loadAnalytics();
     } catch (e) {
       assistantBubble.textContent = "Stream error: " + e.message;
       showToast({ title: "Stream Error", description: e.message, variant: "error" });

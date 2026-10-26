@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"val2harness/internal/analytics"
 	"val2harness/internal/config"
 	"val2harness/internal/exporter"
 	valSync "val2harness/internal/sync"
@@ -95,5 +96,10 @@ func registerHarnessRoutes(mux *http.ServeMux, cfg *config.Config, client *valcl
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "count": count, "dir": outDir})
+	})
+	mux.HandleFunc("/api/local/analytics", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		summary := analytics.GetTracker().GetSummary()
+		json.NewEncoder(w).Encode(summary)
 	})
 }

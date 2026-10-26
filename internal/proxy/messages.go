@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"val2harness/internal/analytics"
 )
 
 type anthropicMsg struct {
@@ -69,7 +70,7 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":{"type":"invalid_request_error","message":"Method not allowed"}}`, http.StatusMethodNotAllowed)
 		return
 	}
-
+	start := time.Now()
 	var req anthropicReq
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil || json.Unmarshal(bodyBytes, &req) != nil {
@@ -126,14 +127,12 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
+		outTok := len(text) / 4
+		analytics.GetTracker().Record(upstreamModel, "anthropic", len(bodyBytes)/4, outTok, time.Since(start).Milliseconds(), upstreamResp.StatusCode)
 		json.NewEncoder(w).Encode(map[string]any{
-			"id":          fmt.Sprintf("msg_%d", time.Now().UnixNano()),
-			"type":        "message",
-			"role":        "assistant",
-			"model":       req.Model,
-			"content":     []map[string]any{{"type": "text", "text": text}},
-			"stop_reason": "end_turn",
-			"usage":       map[string]int{"input_tokens": 10, "output_tokens": len(text) / 4},
+			"id": fmt.Sprintf("msg_%d", time.Now().UnixNano()), "type": "message", "role": "assistant",
+			"model": req.Model, "content": []map[string]any{{"type": "text", "text": text}},
+			"stop_reason": "end_turn", "usage": map[string]int{"input_tokens": len(bodyBytes) / 4, "output_tokens": outTok},
 		})
 		return
 	}
@@ -192,4 +191,5 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	if flusher != nil {
 		flusher.Flush()
 	}
+	analytics.GetTracker().Record(upstreamModel, "anthropic", len(bodyBytes)/4, 60, time.Since(start).Milliseconds(), upstreamResp.StatusCode)
 }

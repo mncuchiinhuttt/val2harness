@@ -1,10 +1,14 @@
 package proxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
+	"time"
+
+	"val2harness/internal/analytics"
 )
 
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -25,9 +29,23 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	upstreamResp, err := s.client.ProxyChat(r.Context(), r.Body)
+	start := time.Now()
+	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
+		http.Error(w, `{"error":{"message":"Bad Request"}}`, http.StatusBadRequest)
+		return
+	}
+
+	var reqPreview struct {
+		Model string `json:"model"`
+	}
+	_ = json.Unmarshal(bodyBytes, &reqPreview)
+	if reqPreview.Model == "" {
+		reqPreview.Model = "anthropic-claude-opus-4-7"
+	}
+
+	upstreamResp, err := s.client.ProxyChat(r.Context(), bytes.NewReader(bodyBytes))
+	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": map[string]any{
@@ -70,10 +88,10 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if readErr != nil {
-			if readErr != io.EOF {
-				// Client or upstream closed connection
-			}
 			break
 		}
 	}
+
+	latency := time.Since(start).Milliseconds()
+	analytics.GetTracker().Record(reqPreview.Model, "openai", len(bodyBytes)/4, 40, latency, upstreamResp.StatusCode)
 }
