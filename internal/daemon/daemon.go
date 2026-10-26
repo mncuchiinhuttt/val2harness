@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"val2harness/internal/config"
@@ -31,11 +30,7 @@ func getLogPath() (string, error) {
 }
 
 func IsProcessAlive(pid int) bool {
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	return proc.Signal(syscall.Signal(0)) == nil
+	return isProcessAlive(pid)
 }
 
 func GetStatus(addr string) (bool, int) {
@@ -82,7 +77,7 @@ func StartDaemon(addr string) (int, error) {
 		return 0, err
 	}
 
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return 0, err
 	}
@@ -98,7 +93,7 @@ func StartDaemon(addr string) (int, error) {
 
 	pid = cmd.Process.Pid
 	pidPath, _ := getPIDPath()
-	_ = os.WriteFile(pidPath, []byte(strconv.Itoa(pid)), 0644)
+	_ = os.WriteFile(pidPath, []byte(strconv.Itoa(pid)), 0600)
 
 	// Wait up to 3s for healthz
 	client := &http.Client{Timeout: 500 * time.Millisecond}

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"val2harness/internal/safeio"
 	"val2harness/internal/valclient"
 )
 
@@ -92,12 +93,12 @@ func RestoreHarness(harness string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("backup file not found: %s", backup)
 	}
-	if err := os.WriteFile(target, data, 0644); err != nil {
+	if err := safeio.WriteSecure(target, data); err != nil {
 		return "", fmt.Errorf("failed to restore %s: %w", target, err)
 	}
 	if strings.ToLower(harness) == "omp" {
 		h, _ := os.UserHomeDir()
-		_ = os.WriteFile(filepath.Join(h, ".omp", "models.yml"), data, 0644)
+		_ = safeio.WriteSecure(filepath.Join(h, ".omp", "models.yml"), data)
 	}
 	return target, nil
 }

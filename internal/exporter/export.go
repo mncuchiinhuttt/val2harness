@@ -31,7 +31,7 @@ func ExportAllChats(ctx context.Context, client *valclient.Client, outDir string
 	if outDir == "" {
 		outDir = "exports"
 	}
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	if err := os.MkdirAll(outDir, 0700); err != nil {
 		return 0, "", err
 	}
 
@@ -58,13 +58,13 @@ func ExportAllChats(ctx context.Context, client *valclient.Client, outDir string
 		jsonBytes, err := json.MarshalIndent(chatDetails, "", "  ")
 		if err == nil {
 			jsonPath := filepath.Join(outDir, baseName+".json")
-			_ = os.WriteFile(jsonPath, jsonBytes, 0644)
+			_ = os.WriteFile(jsonPath, jsonBytes, 0600)
 		}
 
 		// Save Markdown
 		mdContent := renderChatMarkdown(ch.Title, chatDetails)
 		mdPath := filepath.Join(outDir, baseName+".md")
-		_ = os.WriteFile(mdPath, []byte(mdContent), 0644)
+		_ = os.WriteFile(mdPath, []byte(mdContent), 0600)
 		count++
 	}
 

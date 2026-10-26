@@ -701,3 +701,13 @@ input:focus, textarea:focus {
 .data-table tr:hover td {
   background: #f8fafc;
 }
+
+.live-incoming-row {
+  animation: liveIncoming 2.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes liveIncoming {
+  0% { background: #dcfce7; }
+  60% { background: #f0fdf4; }
+  100% { background: transparent; }
+}

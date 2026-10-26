@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,10 +47,28 @@ func (s *Server) registerRoutes() {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// CORS Headers
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	origin := r.Header.Get("Origin")
+	path := r.URL.Path
+
+	// Protect local management API from cross-site / external origins
+	if strings.HasPrefix(path, "/api/local/") {
+		if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+			http.Error(w, `{"error":{"message":"Forbidden: cross-site request"}}`, http.StatusForbidden)
+			return
+		}
+		if origin != "" {
+			if !isAllowedLocalOrigin(origin, s.cfg.ListenAddr) {
+				http.Error(w, `{"error":{"message":"Forbidden: untrusted origin"}}`, http.StatusForbidden)
+				return
+			}
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+	} else {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	}
+
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, Origin, User-Agent")
+	w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, Origin, User-Agent, x-api-key, anthropic-version")
 
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
@@ -57,16 +76,20 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify local API key if configured
-	if s.cfg.APIKey != "" {
+	if s.cfg.APIKey != "" && !strings.HasPrefix(path, "/static/") && path != "/" {
 		auth := r.Header.Get("Authorization")
-		expected := "Bearer " + s.cfg.APIKey
-		if auth != expected {
+		if auth != "Bearer "+s.cfg.APIKey && r.Header.Get("x-api-key") != s.cfg.APIKey {
 			http.Error(w, `{"error":{"message":"Unauthorized"}}`, http.StatusUnauthorized)
 			return
 		}
 	}
 
 	s.mux.ServeHTTP(w, r)
+}
+
+func isAllowedLocalOrigin(origin, listenAddr string) bool {
+	clean := strings.TrimPrefix(strings.TrimPrefix(origin, "http://"), "https://")
+	return clean == listenAddr || strings.HasPrefix(clean, "localhost:") || strings.HasPrefix(clean, "127.0.0.1:")
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {

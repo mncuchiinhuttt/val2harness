@@ -31,6 +31,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const heatmapSubtitle = document.getElementById("heatmapSubtitle");
   const yearButtonsGroup = document.getElementById("yearButtonsGroup");
   const heatmapSvg = document.getElementById("heatmapSvg");
+  const updatePortBtn = document.getElementById("updatePortBtn");
+  const startDaemonBtn = document.getElementById("startDaemonBtn");
+  const stopDaemonBtn = document.getElementById("stopDaemonBtn");
+  const manualTokenInput = document.getElementById("manualTokenInput");
+  const saveManualTokenBtn = document.getElementById("saveManualTokenBtn");
   let selectedYear = new Date().getFullYear();
   let currentAnalyticsData = null;
   const modelsBreakdownBody = document.getElementById("modelsBreakdownBody");
@@ -154,9 +159,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // Real-time Analytics & Heatmap
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+  function formatLocalDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
   function renderYearHeatmap(data, year) {
     if (!heatmapSvg || !data) return;
     const today = new Date();
+    const todayStr = formatLocalDate(today);
+
     const jan1 = new Date(year, 0, 1);
     const sunWeekday = jan1.getDay(); // 0 = Sunday
     let curr = new Date(year, 0, 1 - sunWeekday);
@@ -174,7 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const colX = 34 + c * 16.5;
       for (let r = 0; r < 7; r++) {
         const rowY = 24 + r * 16.5;
-        const dStr = curr.toISOString().split("T")[0];
+        const dStr = formatLocalDate(curr);
         const mIdx = curr.getMonth();
 
         if (r === 0 && mIdx !== lastMonth && curr.getFullYear() === year && c < 52) {
@@ -183,7 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const isCurrentYear = curr.getFullYear() === year;
-        const isFuture = curr > today;
+        const isFuture = dStr > todayStr;
         const count = (data.daily_records && data.daily_records[dStr]) || 0;
         const tokens = (data.daily_tokens && data.daily_tokens[dStr]) || 0;
 
@@ -212,7 +226,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isCurrentYear) {
           const tText = tokens.toLocaleString();
           const tooltip = isFuture ? `Future date: ${dStr}` : `${count} requests (${tText} tokens) on ${dStr}`;
-          svgHtml += `<rect class="heatmap-rect" x="${colX}" y="${rowY}" width="13" height="13" rx="2.5" fill="${fill}" ${strokeAttr} data-date="${dStr}" data-count="${count}" data-tokens="${tokens}"><title>${tooltip}</title></rect>`;
+          const isToday = dStr === todayStr;
+          svgHtml += `<rect class="heatmap-rect ${isToday && count > 0 ? "pulse-highlight" : ""}" x="${colX}" y="${rowY}" width="13" height="13" rx="2.5" fill="${fill}" ${strokeAttr} data-date="${dStr}" data-count="${count}" data-tokens="${tokens}"><title>${tooltip}</title></rect>`;
         }
 
         curr.setDate(curr.getDate() + 1);
@@ -261,32 +276,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
     renderYearHeatmap(data, selectedYear);
     // Models Breakdown
+    // Models Breakdown with In / Out breakdown
     if (modelsBreakdownBody && data.models_breakdown) {
       if (data.models_breakdown.length === 0) {
-        modelsBreakdownBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No model requests recorded yet.</td></tr>';
+        modelsBreakdownBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No model requests recorded yet.</td></tr>';
       } else {
         modelsBreakdownBody.innerHTML = "";
         data.models_breakdown.forEach((m) => {
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td><span style="font-weight: 600;">${m.model}</span></td><td>${m.requests.toLocaleString()}</td><td>${m.total_tokens.toLocaleString()}</td>`;
+          const pIn = m.prompt_tokens ? m.prompt_tokens.toLocaleString() : "0";
+          const cOut = m.completion_tokens ? m.completion_tokens.toLocaleString() : "0";
+          tr.innerHTML = `<td><span style="font-weight: 600;">${m.model}</span></td><td>${m.requests.toLocaleString()}</td><td><span style="color: #64748b;">${pIn}</span> / <span style="color: #059669;">${cOut}</span></td><td>${m.total_tokens.toLocaleString()}</td>`;
           modelsBreakdownBody.appendChild(tr);
         });
       }
     }
 
-    // Recent Logs
+    // Recent Logs with In / Out and live pulse effect
     if (recentLogsBody && data.recent_logs) {
       if (data.recent_logs.length === 0) {
-        recentLogsBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No requests logged yet.</td></tr>';
+        recentLogsBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No requests logged yet.</td></tr>';
       } else {
         recentLogsBody.innerHTML = "";
         data.recent_logs.forEach((r, idx) => {
           const tr = document.createElement("tr");
           if (isLive && idx === 0) {
-            tr.className = "new-row-highlight";
+            tr.className = "live-incoming-row";
           }
           const timeStr = new Date(r.timestamp * 1000).toLocaleTimeString();
-          tr.innerHTML = `<td style="color: var(--text-muted);">${timeStr}</td><td>${r.model}</td><td>${r.total_tokens.toLocaleString()}</td><td>${r.latency_ms}ms</td>`;
+          const pIn = r.prompt_tokens ? r.prompt_tokens.toLocaleString() : "0";
+          const cOut = r.completion_tokens ? r.completion_tokens.toLocaleString() : "0";
+          tr.innerHTML = `<td style="color: var(--text-muted);">${timeStr}</td><td><span style="font-weight: 500;">${r.model}</span></td><td><span style="color: #64748b;">${pIn}</span> in / <span style="color: #059669;">${cOut}</span> out</td><td><span style="font-weight: 600;">${r.total_tokens.toLocaleString()}</span></td><td>${r.latency_ms}ms</td>`;
           recentLogsBody.appendChild(tr);
         });
       }
@@ -438,6 +458,85 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape") selectDropdownMenu.style.display = "none";
   });
 
+  // Wired Dashboard Settings & Controls
+  if (updatePortBtn) {
+    updatePortBtn.addEventListener("click", async () => {
+      const addr = listenAddrInput.value.trim();
+      if (!addr) return;
+      try {
+        const res = await fetch("/api/local/port", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ addr }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast({ title: "Port Saved", description: "Listen address set to " + data.addr, variant: "success" });
+        } else {
+          showToast({ title: "Update Failed", description: data.error, variant: "error" });
+        }
+      } catch (e) {
+        showToast({ title: "Error", description: e.message, variant: "error" });
+      }
+    });
+  }
+
+  if (startDaemonBtn) {
+    startDaemonBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/local/daemon/start", { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+          showToast({ title: "Daemon Started", description: "Running on PID " + data.pid, variant: "success" });
+          loadStatus();
+        } else {
+          showToast({ title: "Start Failed", description: data.error, variant: "error" });
+        }
+      } catch (e) {
+        showToast({ title: "Error", description: e.message, variant: "error" });
+      }
+    });
+  }
+
+  if (stopDaemonBtn) {
+    stopDaemonBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/local/daemon/stop", { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+          showToast({ title: "Daemon Stopped", description: "Server process terminated", variant: "info" });
+          loadStatus();
+        } else {
+          showToast({ title: "Stop Failed", description: data.error, variant: "error" });
+        }
+      } catch (e) {
+        showToast({ title: "Error", description: e.message, variant: "error" });
+      }
+    });
+  }
+
+  if (saveManualTokenBtn) {
+    saveManualTokenBtn.addEventListener("click", async () => {
+      const token = manualTokenInput.value.trim();
+      if (!token) return;
+      try {
+        const res = await fetch("/api/local/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        if (res.ok) {
+          manualTokenInput.value = "";
+          showToast({ title: "Token Saved", description: "Session updated successfully", variant: "success" });
+          loadStatus();
+        } else {
+          showToast({ title: "Save Failed", description: "Invalid token payload", variant: "error" });
+        }
+      } catch (e) {
+        showToast({ title: "Error", description: e.message, variant: "error" });
+      }
+    });
+  }
   // Auth & SSO
   async function triggerLogin() {
     try {

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"val2harness/internal/safeio"
 	"val2harness/internal/valclient"
 )
 
@@ -39,9 +40,17 @@ func SyncOpenCode(ctx context.Context, client *valclient.Client, proxyBaseURL, p
 	}
 
 	rawMap := make(map[string]any)
-	if data, err := os.ReadFile(targetPath); err == nil {
-		_ = os.WriteFile(targetPath+".bak", data, 0644)
-		_ = json.Unmarshal(data, &rawMap)
+	data, found, err := safeio.ReadExisting(targetPath)
+	if err != nil {
+		return 0, "", err
+	}
+	if found && !safeio.IsBlank(data) {
+		if err := json.Unmarshal(data, &rawMap); err != nil {
+			return 0, "", safeio.ParseGuard(targetPath, err)
+		}
+		if err := safeio.WritePristineBackup(targetPath, data); err != nil {
+			return 0, "", err
+		}
 	}
 
 	if _, ok := rawMap["$schema"]; !ok {
@@ -85,10 +94,7 @@ func SyncOpenCode(ctx context.Context, client *valclient.Client, proxyBaseURL, p
 		return 0, "", err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-		return 0, "", err
-	}
-	if err := os.WriteFile(targetPath, outBytes, 0644); err != nil {
+	if err := safeio.WriteSecure(targetPath, outBytes); err != nil {
 		return 0, "", err
 	}
 

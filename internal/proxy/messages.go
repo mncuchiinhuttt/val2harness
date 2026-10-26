@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
 	"val2harness/internal/analytics"
 )
 
@@ -18,52 +19,15 @@ type anthropicMsg struct {
 }
 
 type anthropicReq struct {
-	Model       string         `json:"model"`
-	Messages    []anthropicMsg `json:"messages"`
-	System      any            `json:"system,omitempty"`
-	MaxTokens   int            `json:"max_tokens,omitempty"`
-	Stream      bool           `json:"stream,omitempty"`
-	Temperature *float64       `json:"temperature,omitempty"`
+	Model       string          `json:"model"`
+	Messages    []anthropicMsg  `json:"messages"`
+	System      any             `json:"system,omitempty"`
+	Tools       []anthropicTool `json:"tools,omitempty"`
+	MaxTokens   int             `json:"max_tokens,omitempty"`
+	Stream      bool            `json:"stream,omitempty"`
+	Temperature *float64        `json:"temperature,omitempty"`
 }
 
-func mapAnthropicModel(m string) string {
-	low := strings.ToLower(m)
-	switch {
-	case strings.Contains(low, "opus-4-7") || strings.Contains(low, "opus-4.7"):
-		return "anthropic-claude-opus-4-7"
-	case strings.Contains(low, "opus-5") || strings.Contains(low, "opus"):
-		return "anthropic-claude-opus-5"
-	case strings.Contains(low, "sonnet-5"):
-		return "anthropic-claude-sonnet-5"
-	case strings.Contains(low, "sonnet"):
-		return "anthropic-claude-sonnet-4-6"
-	case strings.Contains(low, "haiku"):
-		return "anthropic-claude-haiku-4-5"
-	default:
-		return "anthropic-claude-opus-4-7"
-	}
-}
-
-func extractText(val any) string {
-	switch v := val.(type) {
-	case string:
-		return v
-	case []any:
-		var sb strings.Builder
-		for _, item := range v {
-			if m, ok := item.(map[string]any); ok {
-				if m["type"] == "text" {
-					if t, ok := m["text"].(string); ok {
-						sb.WriteString(t)
-					}
-				}
-			}
-		}
-		return sb.String()
-	default:
-		return ""
-	}
-}
 
 func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -79,26 +43,15 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	upstreamModel := mapAnthropicModel(req.Model)
-	var openAIMessages []map[string]any
-
-	if sysText := extractText(req.System); sysText != "" {
-		openAIMessages = append(openAIMessages, map[string]any{
-			"role":    "system",
-			"content": sysText,
-		})
-	}
-
-	for _, msg := range req.Messages {
-		openAIMessages = append(openAIMessages, map[string]any{
-			"role":    msg.Role,
-			"content": extractText(msg.Content),
-		})
-	}
+	openAIMessages := convertMessagesToOpenAI(req.System, req.Messages)
 
 	valReq := map[string]any{
 		"model":    upstreamModel,
 		"messages": openAIMessages,
 		"stream":   req.Stream,
+	}
+	if len(req.Tools) > 0 {
+		valReq["tools"] = convertToolsToOpenAI(req.Tools)
 	}
 	if req.Temperature != nil {
 		valReq["temperature"] = *req.Temperature
@@ -112,27 +65,65 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	defer upstreamResp.Body.Close()
 
+	if upstreamResp.StatusCode != http.StatusOK {
+		errBytes, _ := io.ReadAll(upstreamResp.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(upstreamResp.StatusCode)
+		w.Write(formatAnthropicError(upstreamResp.StatusCode, string(errBytes)))
+		return
+	}
+
 	if !req.Stream {
 		var oaiResp struct {
 			Choices []struct {
 				Message struct {
-					Content string `json:"content"`
+					Content   string `json:"content"`
+					ToolCalls []struct {
+						ID       string `json:"id"`
+						Function struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						} `json:"function"`
+					} `json:"tool_calls"`
 				} `json:"message"`
+				FinishReason string `json:"finish_reason"`
 			} `json:"choices"`
 		}
 		_ = json.NewDecoder(upstreamResp.Body).Decode(&oaiResp)
-		text := ""
+		var contentBlocks []map[string]any
+		stopReason := "end_turn"
+
 		if len(oaiResp.Choices) > 0 {
-			text = oaiResp.Choices[0].Message.Content
+			ch := oaiResp.Choices[0]
+			if ch.Message.Content != "" {
+				contentBlocks = append(contentBlocks, map[string]any{"type": "text", "text": ch.Message.Content})
+			}
+			for _, tc := range ch.Message.ToolCalls {
+				var argsObj any
+				_ = json.Unmarshal([]byte(tc.Function.Arguments), &argsObj)
+				contentBlocks = append(contentBlocks, map[string]any{
+					"type":  "tool_use",
+					"id":    tc.ID,
+					"name":  tc.Function.Name,
+					"input": argsObj,
+				})
+			}
+			if len(ch.Message.ToolCalls) > 0 {
+				stopReason = "tool_use"
+			}
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		outTok := len(text) / 4
+		outTok := 50
 		analytics.GetTracker().Record(upstreamModel, "anthropic", len(bodyBytes)/4, outTok, time.Since(start).Milliseconds(), upstreamResp.StatusCode)
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
-			"id": fmt.Sprintf("msg_%d", time.Now().UnixNano()), "type": "message", "role": "assistant",
-			"model": req.Model, "content": []map[string]any{{"type": "text", "text": text}},
-			"stop_reason": "end_turn", "usage": map[string]int{"input_tokens": len(bodyBytes) / 4, "output_tokens": outTok},
+			"id":          fmt.Sprintf("msg_%d", time.Now().UnixNano()),
+			"type":        "message",
+			"role":        "assistant",
+			"model":       req.Model,
+			"content":     contentBlocks,
+			"stop_reason": stopReason,
+			"usage":       map[string]int{"input_tokens": len(bodyBytes) / 4, "output_tokens": outTok},
 		})
 		return
 	}

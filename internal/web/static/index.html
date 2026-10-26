@@ -174,11 +174,12 @@
                 <tr>
                   <th>Model</th>
                   <th>Requests</th>
-                  <th>Tokens</th>
+                  <th>In / Out</th>
+                  <th>Total</th>
                 </tr>
               </thead>
               <tbody id="modelsBreakdownBody">
-                <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No request activity recorded yet.</td></tr>
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No request activity recorded yet.</td></tr>
               </tbody>
             </table>
           </div>
@@ -187,7 +188,10 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">Recent Requests Feed</div>
-            <span class="badge badge-neutral">Live Log</span>
+            <div class="badge badge-success" style="font-size: 0.6875rem; padding: 0.2rem 0.5rem;">
+              <span class="pulse-dot pulse-active"></span>
+              <span>LIVE</span>
+            </div>
           </div>
           <div style="overflow-x: auto;">
             <table class="data-table">
@@ -195,12 +199,13 @@
                 <tr>
                   <th>Time</th>
                   <th>Model</th>
-                  <th>Tokens</th>
+                  <th>In / Out Tokens</th>
+                  <th>Total</th>
                   <th>Latency</th>
                 </tr>
               </thead>
               <tbody id="recentLogsBody">
-                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No requests logged yet.</td></tr>
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No requests logged yet.</td></tr>
               </tbody>
             </table>
           </div>

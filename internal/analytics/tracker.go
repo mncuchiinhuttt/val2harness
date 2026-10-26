@@ -127,8 +127,8 @@ func (t *Tracker) Record(model, protocol string, promptTokens, compTokens int, l
 	t.broadcast(summary)
 
 	go func(r UsageRecord) {
-		_ = os.MkdirAll(filepath.Dir(t.filePath), 0755)
-		f, err := os.OpenFile(t.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		_ = os.MkdirAll(filepath.Dir(t.filePath), 0700)
+		f, err := os.OpenFile(t.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err == nil {
 			defer f.Close()
 			data, _ := json.Marshal(r)

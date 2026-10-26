@@ -159,4 +159,6 @@ func registerHarnessRoutes(mux *http.ServeMux, cfg *config.Config, client *valcl
 		}
 		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "version": v})
 	})
+
+	registerDaemonRoutes(mux, cfg)
 }

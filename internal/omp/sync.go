@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"val2harness/internal/safeio"
 	"val2harness/internal/valclient"
 )
 
@@ -56,26 +57,29 @@ func SyncModels(ctx context.Context, client *valclient.Client, proxyBaseURL, pro
 		return 0, "", err
 	}
 
-	var root yaml.Node
-	fileData, err := os.ReadFile(ompPath)
-	if err == nil {
-		// Create backup
-		_ = os.WriteFile(ompPath+".bak", fileData, 0644)
-		if err := yaml.Unmarshal(fileData, &root); err != nil {
-			return 0, "", fmt.Errorf("failed to parse existing models.yml: %w", err)
+	newDoc := func() yaml.Node {
+		return yaml.Node{
+			Kind:    yaml.DocumentNode,
+			Content: []*yaml.Node{{Kind: yaml.MappingNode}},
 		}
-	} else if os.IsNotExist(err) {
-		// New document
-		root = yaml.Node{
-			Kind: yaml.DocumentNode,
-			Content: []*yaml.Node{
-				{
-					Kind: yaml.MappingNode,
-				},
-			},
+	}
+
+	var root yaml.Node
+	fileData, found, err := safeio.ReadExisting(ompPath)
+	if err != nil {
+		return 0, "", err
+	}
+	if found && !safeio.IsBlank(fileData) {
+		if err := yaml.Unmarshal(fileData, &root); err != nil {
+			return 0, "", safeio.ParseGuard(ompPath, err)
+		}
+		// Back up only after a clean parse so a malformed file never
+		// becomes the restore point.
+		if err := safeio.WritePristineBackup(ompPath, fileData); err != nil {
+			return 0, "", err
 		}
 	} else {
-		return 0, "", err
+		root = newDoc()
 	}
 
 	if len(root.Content) == 0 {
@@ -144,7 +148,7 @@ func SyncModels(ctx context.Context, client *valclient.Client, proxyBaseURL, pro
 	}
 
 	// Update or insert "rmit-val" key
-	found := false
+	found = false
 	for i := 0; i < len(providersNode.Content); i += 2 {
 		if providersNode.Content[i].Value == "rmit-val" {
 			providersNode.Content[i+1] = providerNode.Content[0]
@@ -170,10 +174,17 @@ func SyncModels(ctx context.Context, client *valclient.Client, proxyBaseURL, pro
 		filepath.Join(home, ".omp", "agent", "models.yml"),
 		filepath.Join(home, ".omp", "models.yml"),
 	}
+	wrote := false
 	for _, p := range paths {
-		if err := os.MkdirAll(filepath.Dir(p), 0755); err == nil {
-			_ = os.WriteFile(p, outData, 0644)
+		if _, statErr := os.Stat(filepath.Dir(p)); statErr != nil && p != ompPath {
+			continue
 		}
+		if err := safeio.WriteSecure(p, outData); err == nil {
+			wrote = true
+		}
+	}
+	if !wrote {
+		return 0, "", fmt.Errorf("failed to write models.yml to any OMP path")
 	}
 
 	return len(ompModels), ompPath, nil

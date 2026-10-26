@@ -7,10 +7,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Client struct {
+	mu         sync.RWMutex
 	baseURL    string
 	token      string
 	httpClient *http.Client
@@ -28,10 +30,14 @@ func NewClient(baseURL, token string) *Client {
 }
 
 func (c *Client) SetToken(token string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.token = token
 }
 
 func (c *Client) GetToken() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.token
 }
 
@@ -41,7 +47,7 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.GetToken())
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
@@ -80,7 +86,7 @@ func (c *Client) ProxyChat(ctx context.Context, body io.Reader) (*http.Response,
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.GetToken())
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream, application/json")
 
@@ -93,7 +99,7 @@ func (c *Client) ListChats(ctx context.Context) ([]ChatHistoryItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.GetToken())
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -120,7 +126,7 @@ func (c *Client) GetChat(ctx context.Context, id string) (map[string]any, error)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.GetToken())
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)

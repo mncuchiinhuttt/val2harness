@@ -18,7 +18,15 @@ func setDaemonSysProcAttr(cmd *exec.Cmd) {
 func terminateProcess(proc *os.Process) {
 	_ = proc.Signal(syscall.SIGTERM)
 	time.Sleep(500 * time.Millisecond)
-	if IsProcessAlive(proc.Pid) {
+	if isProcessAlive(proc.Pid) {
 		_ = proc.Signal(syscall.SIGKILL)
 	}
+}
+
+func isProcessAlive(pid int) bool {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	return proc.Signal(syscall.Signal(0)) == nil
 }

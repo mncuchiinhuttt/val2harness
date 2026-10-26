@@ -8,12 +8,23 @@ import (
 	"path/filepath"
 	"strings"
 
+	"val2harness/internal/safeio"
 	"val2harness/internal/valclient"
 )
 
+type piCost struct {
+	Input      float64 `json:"input"`
+	Output     float64 `json:"output"`
+	CacheRead  float64 `json:"cacheRead"`
+	CacheWrite float64 `json:"cacheWrite"`
+}
+
 type piModel struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	ContextWindow int    `json:"contextWindow"`
+	MaxTokens     int    `json:"maxTokens"`
+	Cost          piCost `json:"cost"`
 }
 
 type piProvider struct {
@@ -36,9 +47,17 @@ func SyncPi(ctx context.Context, client *valclient.Client, proxyBaseURL, proxyAP
 	}
 
 	rawMap := make(map[string]any)
-	if data, err := os.ReadFile(piPath); err == nil {
-		_ = os.WriteFile(piPath+".bak", data, 0644)
-		_ = json.Unmarshal(data, &rawMap)
+	data, found, err := safeio.ReadExisting(piPath)
+	if err != nil {
+		return 0, "", err
+	}
+	if found && !safeio.IsBlank(data) {
+		if err := json.Unmarshal(data, &rawMap); err != nil {
+			return 0, "", safeio.ParseGuard(piPath, err)
+		}
+		if err := safeio.WritePristineBackup(piPath, data); err != nil {
+			return 0, "", err
+		}
 	}
 
 	providersMap, ok := rawMap["providers"].(map[string]any)
@@ -55,9 +74,15 @@ func SyncPi(ctx context.Context, client *valclient.Client, proxyBaseURL, proxyAP
 
 	var models []piModel
 	for _, m := range valModels {
+		maxTok := 128000
+		if strings.Contains(m.ID, "haiku") || strings.Contains(m.ID, "mini") {
+			maxTok = 65536
+		}
 		models = append(models, piModel{
-			ID:   m.ID,
-			Name: m.Name,
+			ID:            m.ID,
+			Name:          m.Name,
+			ContextWindow: 1000000,
+			MaxTokens:     maxTok,
 		})
 	}
 
@@ -73,10 +98,7 @@ func SyncPi(ctx context.Context, client *valclient.Client, proxyBaseURL, proxyAP
 		return 0, "", err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(piPath), 0755); err != nil {
-		return 0, "", err
-	}
-	if err := os.WriteFile(piPath, outBytes, 0644); err != nil {
+	if err := safeio.WriteSecure(piPath, outBytes); err != nil {
 		return 0, "", err
 	}
 

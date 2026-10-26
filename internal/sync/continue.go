@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"val2harness/internal/safeio"
 	"val2harness/internal/valclient"
 )
 
@@ -33,9 +34,17 @@ func SyncContinue(ctx context.Context, client *valclient.Client, proxyBaseURL, p
 	}
 
 	rawMap := make(map[string]any)
-	if data, err := os.ReadFile(continuePath); err == nil {
-		_ = os.WriteFile(continuePath+".bak", data, 0644)
-		_ = yaml.Unmarshal(data, &rawMap)
+	data, found, err := safeio.ReadExisting(continuePath)
+	if err != nil {
+		return 0, "", err
+	}
+	if found && !safeio.IsBlank(data) {
+		if err := yaml.Unmarshal(data, &rawMap); err != nil {
+			return 0, "", safeio.ParseGuard(continuePath, err)
+		}
+		if err := safeio.WritePristineBackup(continuePath, data); err != nil {
+			return 0, "", err
+		}
 	}
 
 	apiKey := proxyAPIKey
@@ -87,10 +96,7 @@ func SyncContinue(ctx context.Context, client *valclient.Client, proxyBaseURL, p
 		return 0, "", err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(continuePath), 0755); err != nil {
-		return 0, "", err
-	}
-	if err := os.WriteFile(continuePath, outBytes, 0644); err != nil {
+	if err := safeio.WriteSecure(continuePath, outBytes); err != nil {
 		return 0, "", err
 	}
 
