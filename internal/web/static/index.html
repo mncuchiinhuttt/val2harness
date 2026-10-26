@@ -3,83 +3,154 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>val2harness - RMIT Val Bridge</title>
+  <title>val2harness · RMIT Val AI Gateway</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div>
-        <h1>val2harness</h1>
-        <div class="subtitle">RMIT Val AI Bridge for OMP and Agent Harnesses</div>
+  <div class="app-wrapper">
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="brand-logo">V</div>
+        <div>
+          <div class="brand-title">val2harness</div>
+          <div class="brand-desc">RMIT Val AI Bridge for Agent Harnesses</div>
+        </div>
       </div>
-      <div id="statusBadge" class="status-badge">Connecting...</div>
+      <div class="nav-actions">
+        <div id="sessionBadge" class="badge badge-warning">
+          <span class="pulse-dot pulse-inactive"></span>
+          <span id="sessionBadgeText">Checking Session...</span>
+        </div>
+        <div id="daemonBadge" class="badge badge-neutral">Daemon: ...</div>
+        <button id="navLoginBtn" class="btn">Sign In with RMIT SSO</button>
+        <button id="navLogoutBtn" class="btn btn-secondary" style="display: none;">Log Out</button>
+      </div>
     </header>
 
-    <div class="card">
-      <div class="card-title">Endpoint Information</div>
-      <div class="grid-2">
-        <div>
-          <div class="label">Upstream Val Service</div>
-          <div class="value" id="valUpstream">https://val.rmit.edu.au</div>
-        </div>
-        <div>
-          <div class="label">Local OpenAI Proxy</div>
-          <div class="value" id="localProxy">http://127.0.0.1:8080/v1</div>
-        </div>
-        <div>
-          <div class="label">Available Models</div>
-          <div class="value" id="modelsCount">Loading...</div>
-        </div>
-        <div>
-          <div class="label">Token Expiration</div>
-          <div class="value" id="tokenExp">Checking...</div>
-        </div>
+    <!-- Bento Metric Cards (Full Width) -->
+    <div class="bento-grid">
+      <div class="stat-card">
+        <div class="stat-label">Upstream Val Service</div>
+        <div class="stat-value" id="valUpstream">val.rmit.edu.au</div>
+        <div class="stat-sub">AWS Bedrock · Enterprise Claude Tier</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Local Gateway Address</div>
+        <div class="stat-value" id="localProxy">127.0.0.1:8765</div>
+        <div class="stat-sub">OpenAI (/v1) + Anthropic (/v1/messages)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Available Models</div>
+        <div class="stat-value" id="modelsCount">53 Models</div>
+        <div class="stat-sub">Opus 4.7, Opus 5, Sonnet 5, GPT-5/6</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Session Status</div>
+        <div class="stat-value" id="accountName">Not Signed In</div>
+        <div class="stat-sub" id="tokenExp">Click Sign In to authenticate</div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Authentication & Token</div>
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        <textarea id="tokenInput" rows="3" placeholder="Paste RMIT Val JWT token here..."></textarea>
-        <div style="display: flex; gap: 0.5rem;">
-          <button id="saveTokenBtn" class="btn">Update Token</button>
-          <button id="bookmarkletBtn" class="btn btn-secondary">Copy 1-Click Bookmarklet</button>
-        </div>
-        <div class="notice">
-          Bookmarklet tip: Drag or copy bookmarklet to your browser bar. While logged in at val.rmit.edu.au, click it to sync your token directly to val2harness.
-        </div>
-      </div>
-    </div>
+    <!-- Main 2-Column Responsive Layout -->
+    <div class="layout-cols">
+      <!-- Left Column: Harness Integrations & Controls -->
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        
+        <!-- Harness Sync Hub -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Harness Integrations & Sync</div>
+            <span class="badge badge-neutral">OMP · Pi · OpenCode · Continue</span>
+          </div>
 
-    <div class="card">
-      <div class="card-title">Harness Integrations & Sync</div>
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-          <button id="syncAllBtn" class="btn">Sync All Harnesses (OMP, Pi, OpenCode, Continue)</button>
-          <button id="syncOmpBtn" class="btn btn-secondary">Sync OMP Only</button>
-          <button id="exportChatsBtn" class="btn btn-secondary">Export Chat History</button>
-        </div>
-        <div id="ompStatus" class="value" style="font-size: 0.8125rem; color: var(--accent);"></div>
-        <div class="label" style="margin-top: 0.5rem;">Shell Environment Variables (Claude Code, Cursor, Aider, zcode)</div>
-        <div class="code-box" id="envSnippet">export OPENAI_BASE_URL="http://127.0.0.1:8765/v1"
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+              <button id="syncAllBtn" class="btn">Sync All Harnesses</button>
+              <button id="syncOmpBtn" class="btn btn-secondary">Sync OMP Only</button>
+              <button id="exportChatsBtn" class="btn btn-secondary">Export Chat History</button>
+            </div>
+            
+            <div id="syncStatus" style="font-size: 0.8125rem; color: var(--accent); min-height: 1.25rem;"></div>
+
+            <div>
+              <div class="stat-label" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Universal Shell Environment (Claude Code, Cursor, zcode, Aider)</span>
+                <button id="copyEnvBtn" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Copy Shell Export</button>
+              </div>
+              <div class="code-box" id="envSnippet">export OPENAI_BASE_URL="http://127.0.0.1:8765/v1"
 export OPENAI_API_KEY="rmit-val-key"
 export ANTHROPIC_BASE_URL="http://127.0.0.1:8765"
 export ANTHROPIC_API_KEY="rmit-val-key"</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Live Model Test</div>
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        <div style="display: flex; gap: 0.5rem;">
-          <select id="modelSelect" style="flex: 1;">
-            <option value="">Select model...</option>
-          </select>
-          <button id="sendChatBtn" class="btn">Stream Test</button>
+            </div>
+          </div>
         </div>
-        <input type="text" id="chatInput" value="Explain how neural networks learn in one concise sentence.">
-        <div class="chat-box" id="chatOutput">Responses will stream here in real time...</div>
+
+        <!-- Session Management & Bookmarklet -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Authentication & Single Sign-On</div>
+            <button id="bookmarkletBtn" class="btn btn-secondary" style="font-size: 0.75rem;">Copy 1-Click Bookmarklet</button>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+            <div style="background: var(--surface-hover); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-weight: 600; font-size: 0.875rem;" id="sessionStatusHeader">RMIT Microsoft Authentication</div>
+                <div style="font-size: 0.8125rem; color: var(--text-muted);" id="sessionStatusSub">Sign in with your RMIT student or staff account to refresh your 24-hour token.</div>
+              </div>
+              <button id="loginCardBtn" class="btn">Sign In with RMIT SSO</button>
+            </div>
+
+            <details style="font-size: 0.8125rem; color: var(--text-muted);">
+              <summary style="cursor: pointer; font-weight: 500; margin-bottom: 0.5rem;">Developer Settings: Manual Token Override</summary>
+              <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                <input type="text" id="manualTokenInput" placeholder="Paste raw JWT Bearer token here...">
+                <button id="saveManualTokenBtn" class="btn btn-secondary">Save</button>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- Gateway Daemon Controls -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Gateway Server Settings</div>
+            <span id="daemonStatusText" style="font-size: 0.8125rem; color: var(--text-muted);"></span>
+          </div>
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.5rem; flex: 1; min-width: 200px;">
+              <input type="text" id="listenAddrInput" placeholder="127.0.0.1:8765">
+              <button id="updatePortBtn" class="btn btn-secondary">Save Port</button>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button id="startDaemonBtn" class="btn btn-secondary">Start Daemon</button>
+              <button id="stopDaemonBtn" class="btn btn-secondary">Stop Daemon</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Live Model Playground & Real-Time Stream -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Live Model Playground</div>
+          <select id="modelSelect" style="max-width: 240px; font-weight: 500;">
+            <option value="">Loading models...</option>
+          </select>
+        </div>
+
+        <div class="chat-container">
+          <div class="chat-history" id="chatHistory">
+            <div class="chat-bubble bubble-assistant">Welcome to val2harness. Select an RMIT Val model above and send a test prompt to verify live streaming completions.</div>
+          </div>
+
+          <div class="chat-input-bar">
+            <input type="text" id="chatInput" placeholder="Ask Claude Opus 4.7 or Opus 5 a question...">
+            <button id="sendChatBtn" class="btn">Stream Test</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

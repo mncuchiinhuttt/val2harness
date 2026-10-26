@@ -6,9 +6,13 @@ import (
 	"encoding/json"
 	"io/fs"
 	"net/http"
+	"os/exec"
+	"runtime"
 	"strings"
+	"time"
 
 	"val2harness/internal/config"
+	"val2harness/internal/daemon"
 	"val2harness/internal/exporter"
 	"val2harness/internal/omp"
 	valSync "val2harness/internal/sync"
@@ -42,27 +46,64 @@ func RegisterWebRoutes(mux *http.ServeMux, cfg *config.Config, client *valclient
 		w.Header().Set("Content-Type", "application/json")
 		token := client.GetToken()
 		var exp int64 = 0
+		account := ""
 		if token != "" {
 			parts := strings.Split(token, ".")
 			if len(parts) >= 2 {
-				decoded, err := base64.RawURLEncoding.DecodeString(parts[1])
-				if err == nil {
+				if decoded, err := base64.RawURLEncoding.DecodeString(parts[1]); err == nil {
 					var payload map[string]any
-					if err := json.Unmarshal(decoded, &payload); err == nil {
+					if json.Unmarshal(decoded, &payload) == nil {
 						if expFloat, ok := payload["exp"].(float64); ok {
 							exp = int64(expFloat)
+						}
+						if sub, ok := payload["sub"].(string); ok {
+							account = sub
 						}
 					}
 				}
 			}
 		}
 
+		isExpired := exp > 0 && time.Now().Unix() > exp
+		running, pid := daemon.GetStatus(cfg.ListenAddr)
 		json.NewEncoder(w).Encode(map[string]any{
-			"token_configured": token != "",
+			"token_configured": token != "" && !isExpired,
 			"token_exp":        exp,
+			"is_expired":       isExpired,
+			"account":          account,
 			"upstream":         cfg.UpstreamURL,
 			"listen":           cfg.ListenAddr,
+			"daemon_running":   running,
+			"daemon_pid":       pid,
 		})
+	})
+
+	mux.HandleFunc("/api/local/login", func(w http.ResponseWriter, r *http.Request) {
+		go func() {
+			var cmd *exec.Cmd
+			switch runtime.GOOS {
+			case "darwin":
+				cmd = exec.Command("open", cfg.UpstreamURL)
+			case "windows":
+				cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", cfg.UpstreamURL)
+			default:
+				cmd = exec.Command("xdg-open", cfg.UpstreamURL)
+			}
+			_ = cmd.Start()
+		}()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "url": cfg.UpstreamURL})
+	})
+
+	mux.HandleFunc("/api/local/logout", func(w http.ResponseWriter, r *http.Request) {
+		cfg.Token = ""
+		_ = cfg.Save()
+		client.SetToken("")
+		if onTokenUpdate != nil {
+			onTokenUpdate("")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 	})
 
 	mux.HandleFunc("/api/local/token", func(w http.ResponseWriter, r *http.Request) {
