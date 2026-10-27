@@ -5,3 +5,18 @@ dist/packages/*.zip
 exports/
 *.log
 *.pid
+
+# Local, reproducible code graph and caches
+graphify-out/
+__pycache__/
+
+# Machine-local tooling, credentials and disposable verification output
+.codex/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+*.exe
+*.test
+/%SystemDrive%/

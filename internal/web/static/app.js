@@ -1,4 +1,14 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const signInTicket = new URLSearchParams(window.location.hash.slice(1)).get("session");
+  if (signInTicket) history.replaceState(null, "", window.location.pathname + window.location.search);
+  const authPanel = document.getElementById("localAuthPanel");
+  const gatewayContent = document.getElementById("gatewayContent");
+  const gatewayKeyInput = document.getElementById("gatewayKeyInput");
+  const unlockGatewayBtn = document.getElementById("unlockGatewayBtn");
+  const gatewayAuthError = document.getElementById("gatewayAuthError");
+  let gatewaySession = "";
+  try { gatewaySession = sessionStorage.getItem("val2harness.session") || ""; } catch {}
+
   const toastContainer = document.getElementById("toastContainer");
   const sessionBadge = document.getElementById("sessionBadge");
   const daemonBadge = document.getElementById("daemonBadge");
@@ -26,6 +36,69 @@ document.addEventListener("DOMContentLoaded", () => {
   const modelSearchInput = document.getElementById("modelSearchInput");
   const selectOptionsList = document.getElementById("selectOptionsList");
 
+  function lockGateway(message = "") {
+    gatewaySession = "";
+    try { sessionStorage.removeItem("val2harness.session"); } catch {}
+    authPanel.hidden = false;
+    gatewayContent.hidden = true;
+    navLoginBtn.disabled = true;
+    navLogoutBtn.disabled = true;
+    sessionBadge.textContent = "Gateway locked";
+    gatewayAuthError.textContent = message;
+  }
+
+  async function apiFetch(path, options = {}) {
+    const headers = new Headers(options.headers);
+    if (gatewaySession) headers.set("Authorization", "Bearer " + gatewaySession);
+    const response = await window.fetch(path, { ...options, headers });
+    if (response.status === 401) {
+      lockGateway("Your local sign-in expired. Open the dashboard again or enter your connection key.");
+      throw new Error("Unlock your local gateway first.");
+    }
+    return response;
+  }
+
+  async function exchangeTicket(ticket) {
+    const response = await window.fetch("/api/local/session", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket }),
+    });
+    if (!response.ok) throw new Error("This sign-in link expired or was already used. Open the dashboard again.");
+    const data = await response.json();
+    if (!data.token) throw new Error("The gateway did not create a local session.");
+    gatewaySession = data.token;
+    try { sessionStorage.setItem("val2harness.session", data.token); } catch {}
+  }
+
+  async function showGateway() {
+    authPanel.hidden = true;
+    gatewayContent.hidden = false;
+    navLoginBtn.disabled = false;
+    navLogoutBtn.disabled = false;
+    gatewayAuthError.textContent = "";
+    await loadStatus();
+  }
+
+  unlockGatewayBtn.addEventListener("click", async () => {
+    const key = gatewayKeyInput.value.trim();
+    gatewayKeyInput.value = "";
+    if (!key) { gatewayAuthError.textContent = "Enter your local connection key."; return; }
+    unlockGatewayBtn.disabled = true;
+    try {
+      const response = await window.fetch("/api/local/session-ticket", {
+        method: "POST", headers: { Authorization: "Bearer " + key },
+      });
+      if (!response.ok) throw new Error("That connection key was not accepted.");
+      const data = await response.json();
+      await exchangeTicket(data.ticket);
+      await showGateway();
+    } catch (error) { lockGateway(error.message); }
+    finally { unlockGatewayBtn.disabled = false; }
+  });
+  gatewayKeyInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") unlockGatewayBtn.click();
+  });
+
   let allModels = [];
   let currentModel = "anthropic-claude-opus-4-7";
 
@@ -38,7 +111,13 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (variant === "error") {
       iconSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
     }
-    toast.innerHTML = `<div class="toast-icon">${iconSvg}</div><div class="toast-content"><div class="toast-title">${title}</div>${description ? `<div class="toast-desc">${description}</div>` : "" }</div>`;
+    const icon = document.createElement("div");
+    icon.className = "toast-icon"; icon.innerHTML = iconSvg;
+    const content = document.createElement("div"); content.className = "toast-content";
+    const heading = document.createElement("div"); heading.className = "toast-title"; heading.textContent = title;
+    content.appendChild(heading);
+    if (description) { const detail = document.createElement("div"); detail.className = "toast-desc"; detail.textContent = description; content.appendChild(detail); }
+    toast.append(icon, content);
     toastContainer.appendChild(toast);
     setTimeout(() => {
       toast.classList.add("toast-exit");
@@ -59,7 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadStatus() {
     try {
-      const res = await fetch("/api/local/status");
+      const res = await apiFetch("/api/local/status");
       const data = await res.json();
       listenAddrInput.value = data.listen || "127.0.0.1:8765";
 
@@ -95,6 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       loadHarnesses();
       loadModels();
+      loadEnvironment();
     } catch (e) {
       showToast({ title: "Gateway Offline", description: "Could not reach local server.", variant: "error" });
     }
@@ -102,7 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadHarnesses() {
     try {
-      const res = await fetch("/api/local/harnesses");
+      const res = await apiFetch("/api/local/harnesses");
       const list = await res.json();
       list.forEach((h) => {
         const badge = document.getElementById(`badge-${h.id}`);
@@ -125,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
       syncBtn.addEventListener("click", async () => {
         syncBtn.textContent = "Syncing...";
         try {
-          const res = await fetch("/api/local/sync", {
+          const res = await apiFetch("/api/local/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ harness: id }),
@@ -149,7 +229,7 @@ document.addEventListener("DOMContentLoaded", () => {
       restoreBtn.addEventListener("click", async () => {
         restoreBtn.textContent = "Resetting...";
         try {
-          const res = await fetch("/api/local/restore", {
+          const res = await apiFetch("/api/local/restore", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ harness: id }),
@@ -170,10 +250,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  async function loadEnvironment() {
+    try {
+      const response = await apiFetch("/api/local/env");
+      if (!response.ok) throw new Error("Could not load connection settings.");
+      document.getElementById("envSnippet").textContent = await response.text();
+    } catch (error) { showToast({ title: "Connection Settings", description: error.message, variant: "error" }); }
+  }
+
   // Custom Select Logic
   async function loadModels() {
     try {
-      const res = await fetch("/v1/models");
+      const res = await apiFetch("/v1/models");
       if (!res.ok) return;
       const data = await res.json();
       allModels = data.data || [];
@@ -187,7 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
     list.forEach((m) => {
       const opt = document.createElement("div");
       opt.className = `select-option ${m.id === currentModel ? "selected" : ""}`;
-      opt.innerHTML = `<span>${m.id}</span>${m.id === currentModel ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : ""}`;
+      const label = document.createElement("span"); label.textContent = m.id; opt.appendChild(label);
       opt.addEventListener("click", () => {
         currentModel = m.id;
         selectedModelLabel.textContent = m.id;
@@ -229,7 +317,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Auth & SSO
   async function triggerLogin() {
     try {
-      const res = await fetch("/api/local/login", { method: "POST" });
+      const res = await apiFetch("/api/local/login", { method: "POST" });
       const data = await res.json();
       window.open(data.url || "https://val.rmit.edu.au", "_blank");
       showToast({ title: "SSO Opened", description: "Complete sign-in on val.rmit.edu.au", variant: "info" });
@@ -241,17 +329,35 @@ document.addEventListener("DOMContentLoaded", () => {
   navLoginBtn.addEventListener("click", triggerLogin);
   loginCardBtn.addEventListener("click", triggerLogin);
   navLogoutBtn.addEventListener("click", async () => {
-    await fetch("/api/local/logout", { method: "POST" });
+    await apiFetch("/api/local/logout", { method: "POST" });
     showToast({ title: "Logged Out", description: "Session cleared successfully", variant: "info" });
     loadStatus();
   });
 
-  copyBookmarkletBtn.addEventListener("click", () => {
-    const host = window.location.origin;
-    const code = `javascript:(function(){const t=localStorage.getItem("token");if(!t){alert("No token found in localStorage");return;}fetch("${host}/api/local/token",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:t})}).then(r=>r.json()).then(d=>{alert("Token synced successfully to val2harness!");}).catch(e=>{alert("Failed: "+e);});})();`;
-    navigator.clipboard.writeText(code).then(() => {
-      showToast({ title: "Bookmarklet Copied", description: "Drag/click on val.rmit.edu.au tab to sync token", variant: "success" });
-    });
+  copyBookmarkletBtn.addEventListener("click", async () => {
+    try {
+      const response = await apiFetch("/api/local/import-ticket", { method: "POST" });
+      if (!response.ok) throw new Error("Could not create a token import link.");
+      const { ticket } = await response.json();
+      const endpoint = window.location.origin + "/api/local/import-token";
+      const code = "javascript:(function(){const t=localStorage.getItem('token');if(!t){alert('No Val token found. Sign in to Val first.');return;}fetch(" +
+        JSON.stringify(endpoint) + ",{method:'POST',headers:{'Content-Type':'application/json','X-Val-Import':" +
+        JSON.stringify(ticket) + "},body:JSON.stringify({token:t})}).then(r=>{if(!r.ok)throw new Error('Import failed or expired');return r.json();}).then(()=>alert('Val token saved locally.')).catch(e=>alert(e.message));})();";
+      await navigator.clipboard.writeText(code);
+      showToast({ title: "One-use Import Copied", description: "Run it on the Val page within five minutes. Your token stays in your local gateway.", variant: "success" });
+    } catch (error) { showToast({ title: "Import Link Failed", description: error.message, variant: "error" }); }
+  });
+
+  document.getElementById("saveManualTokenBtn").addEventListener("click", async () => {
+    const input = document.getElementById("manualTokenInput");
+    const token = input.value.trim(); input.value = "";
+    if (!token) return;
+    try {
+      const response = await apiFetch("/api/local/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
+      if (!response.ok) throw new Error("Could not save your Val token.");
+      await loadStatus();
+      showToast({ title: "Val Token Saved", variant: "success" });
+    } catch (error) { showToast({ title: "Token Not Saved", description: error.message, variant: "error" }); }
   });
 
   copyEnvBtn.addEventListener("click", () => {
@@ -264,8 +370,9 @@ document.addEventListener("DOMContentLoaded", () => {
   exportChatsBtn.addEventListener("click", async () => {
     exportChatsBtn.textContent = "Exporting...";
     try {
-      const res = await fetch("/api/local/export", { method: "POST" });
+      const res = await apiFetch("/api/local/export", { method: "POST" });
       const data = await res.json();
+      if (!res.ok) throw new Error(`${data.count ?? 0} chats fully saved in ${data.dir || "exports"}; partial files were retained. ${data.error || "Export failed."}`);
       showToast({ title: "Export Complete", description: `Exported ${data.count} chats to ${data.dir}/`, variant: "success" });
     } catch (e) {
       showToast({ title: "Export Failed", description: e.message, variant: "error" });
@@ -299,7 +406,7 @@ document.addEventListener("DOMContentLoaded", () => {
     chatHistory.scrollTop = chatHistory.scrollHeight;
 
     try {
-      const res = await fetch("/v1/chat/completions", {
+      const res = await apiFetch("/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -348,5 +455,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  loadStatus();
+  (async () => {
+    if (signInTicket) {
+      try { await exchangeTicket(signInTicket); await showGateway(); }
+      catch (error) { lockGateway(error.message); }
+    } else if (gatewaySession) { await showGateway(); }
+    else { lockGateway(); }
+  })();
 });

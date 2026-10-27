@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
+	"val2harness/internal/configfile"
 	"val2harness/internal/valclient"
 )
 
@@ -17,41 +17,14 @@ func SyncOpenCode(ctx context.Context, client *valclient.Client, proxyBaseURL, p
 		return 0, "", err
 	}
 
-	paths := []string{
-		filepath.Join(home, ".config", "opencode", "opencode.json"),
-		filepath.Join(home, ".opencode", "opencode.json"),
-	}
-
-	var targetPath string
-	for _, p := range paths {
-		if _, err := os.Stat(filepath.Dir(p)); err == nil {
-			targetPath = p
-			break
-		}
-	}
-	if targetPath == "" {
-		targetPath = paths[0]
+	targetPath, err := openCodePath(home)
+	if err != nil {
+		return 0, "", err
 	}
 
 	valModels, err := client.ListModels(ctx)
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to fetch models from Val: %w", err)
-	}
-
-	rawMap := make(map[string]any)
-	if data, err := os.ReadFile(targetPath); err == nil {
-		_ = os.WriteFile(targetPath+".bak", data, 0644)
-		_ = json.Unmarshal(data, &rawMap)
-	}
-
-	if _, ok := rawMap["$schema"]; !ok {
-		rawMap["$schema"] = "https://opencode.ai/config.json"
-	}
-
-	providerMap, ok := rawMap["provider"].(map[string]any)
-	if !ok {
-		providerMap = make(map[string]any)
-		rawMap["provider"] = providerMap
 	}
 
 	apiKey := proxyAPIKey
@@ -71,24 +44,30 @@ func SyncOpenCode(ctx context.Context, client *valclient.Client, proxyBaseURL, p
 		}
 	}
 
-	providerMap["rmit-val"] = map[string]any{
-		"npm": "@ai-sdk/openai-compatible",
-		"options": map[string]any{
-			"baseURL": baseURL,
-			"apiKey":  apiKey,
-		},
-		"models": modelsObj,
-	}
+	err = configfile.Update(targetPath, func(data []byte) ([]byte, error) {
+		rawMap, err := configfile.JSONObject(data)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := rawMap["$schema"]; !ok {
+			rawMap["$schema"] = "https://opencode.ai/config.json"
+		}
+		providerMap, err := configfile.ObjectField(rawMap, "provider")
+		if err != nil {
+			return nil, err
+		}
+		providerMap["rmit-val"] = map[string]any{
+			"npm": "@ai-sdk/openai-compatible",
+			"options": map[string]any{
+				"baseURL": baseURL,
+				"apiKey":  apiKey,
+			},
+			"models": modelsObj,
+		}
 
-	outBytes, err := json.MarshalIndent(rawMap, "", "  ")
+		return json.MarshalIndent(rawMap, "", "  ")
+	})
 	if err != nil {
-		return 0, "", err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-		return 0, "", err
-	}
-	if err := os.WriteFile(targetPath, outBytes, 0644); err != nil {
 		return 0, "", err
 	}
 

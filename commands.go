@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -16,7 +18,7 @@ import (
 )
 
 func runStart(args []string) {
-	cfg, _ := config.Load()
+	cfg := loadCLIConfig()
 	pid, err := daemon.StartDaemon(cfg.ListenAddr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[Error] %v\n", err)
@@ -28,7 +30,7 @@ func runStart(args []string) {
 }
 
 func runStop(args []string) {
-	cfg, _ := config.Load()
+	cfg := loadCLIConfig()
 	if err := daemon.StopDaemon(cfg.ListenAddr); err != nil {
 		fmt.Fprintf(os.Stderr, "[Error] %v\n", err)
 		os.Exit(1)
@@ -37,25 +39,41 @@ func runStop(args []string) {
 }
 
 func runStatus(args []string) {
-	cfg, _ := config.Load()
+	cfg := loadCLIConfig()
 	running, pid := daemon.GetStatus(cfg.ListenAddr)
 	if running {
 		fmt.Printf("[RUNNING] Server active on http://%s (PID: %d)\n", cfg.ListenAddr, pid)
+	} else if pid > 0 {
+		fmt.Printf("[NEEDS ATTENTION] Process %d is alive; check its address, identity, or health before restarting.\n", pid)
 	} else {
 		fmt.Printf("[STOPPED] Server is not running on %s\n", cfg.ListenAddr)
 	}
 }
 
 func runOpen() {
-	cfg, _ := config.Load()
-	url := fmt.Sprintf("http://%s/", cfg.ListenAddr)
-	fmt.Printf("Opening %s in browser...\n", url)
-	_, _ = daemon.StartDaemon(cfg.ListenAddr)
-	tui.RunTUI()
+	cfg := loadCLIConfig()
+	dashboard, err := daemon.DashboardURL(cfg)
+	if err != nil {
+		var transport *url.Error
+		if errors.As(err, &transport) {
+			if _, startErr := daemon.StartDaemon(cfg.ListenAddr); startErr != nil {
+				fmt.Fprintln(os.Stderr, startErr)
+				return
+			}
+			dashboard, err = daemon.DashboardURL(cfg)
+		}
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	if err := tui.OpenBrowser(dashboard); err != nil {
+		fmt.Fprintln(os.Stderr, "Could not open the dashboard:", err)
+	}
 }
 
 func runChat(args []string) {
-	cfg, _ := config.Load()
+	cfg := loadCLIConfig()
 	if cfg.Token == "" {
 		fmt.Fprintln(os.Stderr, "Error: Token not set. Run 'val2harness token <jwt>' first.")
 		os.Exit(1)
@@ -69,7 +87,7 @@ func runChat(args []string) {
 }
 
 func runModels(args []string) {
-	cfg, _ := config.Load()
+	cfg := loadCLIConfig()
 	if cfg.Token == "" {
 		fmt.Fprintln(os.Stderr, "Error: Token not configured. Run 'val2harness token <jwt>' first.")
 		os.Exit(1)
@@ -92,7 +110,7 @@ func runModels(args []string) {
 }
 
 func runSync(args []string) {
-	cfg, _ := config.Load()
+	cfg := loadCLIConfig()
 	if cfg.Token == "" {
 		fmt.Fprintln(os.Stderr, "Error: Token not configured. Run 'val2harness token <jwt>' first.")
 		os.Exit(1)
@@ -102,7 +120,7 @@ func runSync(args []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	proxyBaseURL := "http://" + cfg.ListenAddr
+	proxyBaseURL := config.LocalBaseURL(cfg.ListenAddr)
 	results := valSync.SyncAll(ctx, client, proxyBaseURL, cfg.APIKey)
 	fmt.Println("Harness Sync Results:")
 	for _, res := range results {
@@ -115,12 +133,12 @@ func runSync(args []string) {
 }
 
 func runEnv() {
-	cfg, _ := config.Load()
-	fmt.Print(valSync.GenerateEnvSnippet(cfg.ListenAddr))
+	cfg := loadCLIConfig()
+	fmt.Print(valSync.GenerateEnvSnippet(cfg.ListenAddr, cfg.APIKey))
 }
 
 func runToken(args []string) {
-	cfg, _ := config.Load()
+	cfg := loadCLIConfig()
 	if len(args) == 0 {
 		if cfg.Token == "" {
 			fmt.Println("No token is currently configured.")
@@ -144,7 +162,7 @@ func runToken(args []string) {
 }
 
 func runExport(args []string) {
-	cfg, _ := config.Load()
+	cfg := loadCLIConfig()
 	if cfg.Token == "" {
 		fmt.Fprintln(os.Stderr, "Error: Token not configured.")
 		os.Exit(1)
@@ -154,10 +172,31 @@ func runExport(args []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	count, outDir, err := exporter.ExportAllChats(ctx, client, "exports")
+	targetDir := "exports"
+	if len(args) > 0 {
+		targetDir = args[0]
+	} else {
+		var err error
+		targetDir, err = exporter.NewRunDirectory(targetDir)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Could not create a private export folder:", err)
+			os.Exit(1)
+		}
+	}
+	count, outDir, err := exporter.ExportAllChats(ctx, client, targetDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Export failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Export incomplete: %d chats fully saved in %s; any partial files were retained. Use a fresh directory to retry.\n%v\n", count, outDir, err)
 		os.Exit(1)
 	}
 	fmt.Printf("Export completed: %d chats written to %s/\n", count, outDir)
+}
+
+// Stop before any dependent side effect when private settings cannot be loaded.
+func loadCLIConfig() *config.Config {
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Could not load local settings:", err)
+		os.Exit(1)
+	}
+	return cfg
 }

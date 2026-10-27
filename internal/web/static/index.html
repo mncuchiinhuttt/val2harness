@@ -28,6 +28,20 @@
       </div>
     </header>
 
+    <section id="localAuthPanel" class="card" aria-labelledby="gatewayAuthTitle">
+      <h2 id="gatewayAuthTitle">Unlock your local gateway</h2>
+      <p>Your Val account and settings are private. Choose Open Web Dashboard in
+        the terminal menu for automatic sign-in, or enter your local connection key.</p>
+      <label for="gatewayKeyInput">Local connection key</label>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+        <input id="gatewayKeyInput" type="password" autocomplete="off" spellcheck="false">
+        <button id="unlockGatewayBtn" class="btn">Unlock Gateway</button>
+      </div>
+      <p id="gatewayAuthError" role="alert" style="color:var(--text-muted);"></p>
+    </section>
+
+    <div id="gatewayContent" hidden>
+
     <!-- Navigation Tabs Header -->
     <div class="tabs-header">
       <div class="tabs-list">
@@ -80,7 +94,7 @@
         <details style="font-size: 0.8125rem; color: var(--text-muted);">
           <summary style="cursor: pointer; font-weight: 500; margin-bottom: 0.5rem;">Developer Settings: Manual Token Override</summary>
           <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-            <input type="text" id="manualTokenInput" placeholder="Paste raw JWT Bearer token here...">
+            <input type="password" id="manualTokenInput" autocomplete="off" placeholder="Paste your Val token here...">
             <button id="saveManualTokenBtn" class="btn btn-secondary">Save Token</button>
           </div>
         </details>
@@ -178,10 +192,7 @@
           <div class="card-title">Universal Shell Environment (Claude Code, Cursor, zcode, Aider)</div>
           <button id="copyEnvBtn" class="btn btn-secondary btn-sm">Copy Shell Export</button>
         </div>
-        <div class="code-box" id="envSnippet">export OPENAI_BASE_URL="http://127.0.0.1:8765/v1"
-export OPENAI_API_KEY="rmit-val-key"
-export ANTHROPIC_BASE_URL="http://127.0.0.1:8765"
-export ANTHROPIC_API_KEY="rmit-val-key"</div>
+        <div class="code-box" id="envSnippet">Unlock the gateway to load your private connection settings.</div>
       </div>
     </div>
 
@@ -240,6 +251,7 @@ export ANTHROPIC_API_KEY="rmit-val-key"</div>
     </div>
   </div>
 
+    </div>
   <!-- Sonner/Shadcn Style Toast Notifications Container -->
   <div id="toastContainer" class="toast-container"></div>
 

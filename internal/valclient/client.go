@@ -1,18 +1,22 @@
 package valclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Client struct {
 	baseURL    string
 	token      string
+	tokenMu    sync.RWMutex
 	httpClient *http.Client
 }
 
@@ -28,10 +32,14 @@ func NewClient(baseURL, token string) *Client {
 }
 
 func (c *Client) SetToken(token string) {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
 	c.token = token
 }
 
 func (c *Client) GetToken() string {
+	c.tokenMu.RLock()
+	defer c.tokenMu.RUnlock()
 	return c.token
 }
 
@@ -41,7 +49,7 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.GetToken())
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
@@ -60,13 +68,18 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 		return nil, err
 	}
 
-	var mr ModelsResponse
-	if err := json.Unmarshal(body, &mr); err == nil && len(mr.Data) > 0 {
-		return mr.Data, nil
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err == nil {
+		if data, exists := envelope["data"]; exists && strings.TrimSpace(string(data)) != "null" {
+			var models []ModelInfo
+			if err := json.Unmarshal(data, &models); err == nil {
+				return models, nil
+			}
+		}
 	}
 
 	var rawList []ModelInfo
-	if err := json.Unmarshal(body, &rawList); err == nil {
+	if err := json.Unmarshal(body, &rawList); err == nil && rawList != nil {
 		return rawList, nil
 	}
 
@@ -74,13 +87,23 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 }
 
 func (c *Client) ProxyChat(ctx context.Context, body io.Reader) (*http.Response, error) {
-	reqURL := fmt.Sprintf("%s/api/chat/completions", c.baseURL)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, body)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	data, err := prepareChatRequest(body)
 	if err != nil {
 		return nil, err
 	}
+	reqURL := fmt.Sprintf("%s/api/chat/completions", c.baseURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	// Buffering must not enable automatic 307/308 POST replay to a new
+	// destination. Raw OpenAI request bodies were not replayable before.
+	req.GetBody = nil
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.GetToken())
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream, application/json")
 
@@ -93,7 +116,7 @@ func (c *Client) ListChats(ctx context.Context) ([]ChatHistoryItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.GetToken())
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -115,12 +138,15 @@ func (c *Client) ListChats(ctx context.Context) ([]ChatHistoryItem, error) {
 }
 
 func (c *Client) GetChat(ctx context.Context, id string) (map[string]any, error) {
-	reqURL := fmt.Sprintf("%s/api/v1/chats/%s", c.baseURL, id)
+	if id == "" || id == "." || id == ".." || strings.ContainsAny(id, "/\\") || strings.IndexFunc(id, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
+		return nil, fmt.Errorf("invalid chat ID: expected one nonempty path segment")
+	}
+	reqURL := fmt.Sprintf("%s/api/v1/chats/%s", c.baseURL, url.PathEscape(id))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.GetToken())
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -135,7 +161,9 @@ func (c *Client) GetChat(ctx context.Context, id string) (map[string]any, error)
 	}
 
 	var chatData map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&chatData); err != nil {
+	decoder := json.NewDecoder(resp.Body)
+	decoder.UseNumber()
+	if err := decoder.Decode(&chatData); err != nil {
 		return nil, err
 	}
 	return chatData, nil

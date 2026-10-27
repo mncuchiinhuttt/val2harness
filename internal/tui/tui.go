@@ -37,13 +37,19 @@ func RunTUI() {
 	}
 
 	for {
-		cfg, _ := config.Load()
+		cfg, err := config.Load()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Could not load local settings:", err)
+			return
+		}
 		client := valclient.NewClient(cfg.UpstreamURL, cfg.Token)
 		running, pid := daemon.GetStatus(cfg.ListenAddr)
 
 		statusStr := "\x1b[33m● Stopped\x1b[0m"
 		if running {
 			statusStr = fmt.Sprintf("\x1b[32m● Running (PID %d)\x1b[0m", pid)
+		} else if pid > 0 {
+			statusStr = fmt.Sprintf("\x1b[33m● Needs attention (PID %d)\x1b[0m", pid)
 		}
 
 		header := fmt.Sprintf(
@@ -84,13 +90,18 @@ func RunTUI() {
 			r, p := daemon.GetStatus(cfg.ListenAddr)
 			if r {
 				fmt.Printf("[OK] Server is healthy and listening on http://%s (PID: %d)\n", cfg.ListenAddr, p)
+			} else if p > 0 {
+				fmt.Printf("[Needs attention] Process %d is alive; check its address, identity, or health before restarting.\n", p)
 			} else {
 				fmt.Printf("[Offline] Server is not running on %s\n", cfg.ListenAddr)
 			}
 		case 3: // Open WebUI
-			url := fmt.Sprintf("http://%s/", cfg.ListenAddr)
-			fmt.Printf("Opening %s in browser...\n", url)
-			openBrowser(url)
+			url, err := daemon.DashboardURL(cfg)
+			if err != nil {
+				fmt.Println("Start the gateway first, then open its dashboard:", err)
+			} else if err := OpenBrowser(url); err != nil {
+				fmt.Println("Could not open dashboard:", err)
+			}
 		case 4: // Terminal Chat
 			if cfg.Token == "" {
 				fmt.Println("[Error] Token not set. Please set token first.")
@@ -99,7 +110,7 @@ func RunTUI() {
 			}
 		case 5: // Sync All
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			results := valSync.SyncAll(ctx, client, "http://"+cfg.ListenAddr, cfg.APIKey)
+			results := valSync.SyncAll(ctx, client, config.LocalBaseURL(cfg.ListenAddr), cfg.APIKey)
 			cancel()
 			fmt.Println("Harness Sync Results:")
 			for _, res := range results {
@@ -110,7 +121,7 @@ func RunTUI() {
 				}
 			}
 		case 6: // Env Snippet
-			fmt.Println(valSync.GenerateEnvSnippet(cfg.ListenAddr))
+			fmt.Println(valSync.GenerateEnvSnippet(cfg.ListenAddr, cfg.APIKey))
 		case 7: // Models
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			models, err := client.ListModels(ctx)
@@ -143,10 +154,16 @@ func RunTUI() {
 			}
 		case 10: // Export
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-			cnt, dir, err := exporter.ExportAllChats(ctx, client, "exports")
+			dir, err := exporter.NewRunDirectory("exports")
+			if err != nil {
+				cancel()
+				fmt.Println("[Error] Could not create a private export folder:", err)
+				break
+			}
+			cnt, dir, err := exporter.ExportAllChats(ctx, client, dir)
 			cancel()
 			if err != nil {
-				fmt.Printf("[Error] %v\n", err)
+				fmt.Printf("[Incomplete] %d chats fully saved in %s; partial files were retained. Use a fresh directory to retry.\n%v\n", cnt, dir, err)
 			} else {
 				fmt.Printf("[OK] Exported %d chats to %s/\n", cnt, dir)
 			}
@@ -161,7 +178,7 @@ func RunTUI() {
 	}
 }
 
-func openBrowser(url string) {
+func OpenBrowser(url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -171,5 +188,5 @@ func openBrowser(url string) {
 	default:
 		cmd = exec.Command("xdg-open", url)
 	}
-	_ = cmd.Start()
+	return cmd.Start()
 }

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"val2harness/internal/configfile"
 	"val2harness/internal/valclient"
 )
 
@@ -35,18 +36,6 @@ func SyncPi(ctx context.Context, client *valclient.Client, proxyBaseURL, proxyAP
 		return 0, "", fmt.Errorf("failed to fetch models from Val: %w", err)
 	}
 
-	rawMap := make(map[string]any)
-	if data, err := os.ReadFile(piPath); err == nil {
-		_ = os.WriteFile(piPath+".bak", data, 0644)
-		_ = json.Unmarshal(data, &rawMap)
-	}
-
-	providersMap, ok := rawMap["providers"].(map[string]any)
-	if !ok {
-		providersMap = make(map[string]any)
-		rawMap["providers"] = providersMap
-	}
-
 	apiKey := proxyAPIKey
 	if apiKey == "" {
 		apiKey = "rmit-val-key"
@@ -61,22 +50,25 @@ func SyncPi(ctx context.Context, client *valclient.Client, proxyBaseURL, proxyAP
 		})
 	}
 
-	providersMap["rmit-val"] = piProvider{
-		BaseURL: baseURL,
-		APIKey:  apiKey,
-		API:     "openai-completions",
-		Models:  models,
-	}
+	err = configfile.Update(piPath, func(data []byte) ([]byte, error) {
+		rawMap, err := configfile.JSONObject(data)
+		if err != nil {
+			return nil, err
+		}
+		providersMap, err := configfile.ObjectField(rawMap, "providers")
+		if err != nil {
+			return nil, err
+		}
+		providersMap["rmit-val"] = piProvider{
+			BaseURL: baseURL,
+			APIKey:  apiKey,
+			API:     "openai-completions",
+			Models:  models,
+		}
 
-	outBytes, err := json.MarshalIndent(rawMap, "", "  ")
+		return json.MarshalIndent(rawMap, "", "  ")
+	})
 	if err != nil {
-		return 0, "", err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(piPath), 0755); err != nil {
-		return 0, "", err
-	}
-	if err := os.WriteFile(piPath, outBytes, 0644); err != nil {
 		return 0, "", err
 	}
 

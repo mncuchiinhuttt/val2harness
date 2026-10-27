@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"val2harness/internal/configfile"
 	"val2harness/internal/valclient"
 )
 
@@ -25,74 +26,58 @@ func SyncContinue(ctx context.Context, client *valclient.Client, proxyBaseURL, p
 	if err != nil {
 		return 0, "", err
 	}
-	continuePath := filepath.Join(home, ".continue", "config.yaml")
-
-	valModels, err := client.ListModels(ctx)
+	path := filepath.Join(home, ".continue", "config.yaml")
+	models, err := client.ListModels(ctx)
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to fetch models from Val: %w", err)
 	}
-
-	rawMap := make(map[string]any)
-	if data, err := os.ReadFile(continuePath); err == nil {
-		_ = os.WriteFile(continuePath+".bak", data, 0644)
-		_ = yaml.Unmarshal(data, &rawMap)
+	if proxyAPIKey == "" {
+		proxyAPIKey = "rmit-val-key"
 	}
-
-	apiKey := proxyAPIKey
-	if apiKey == "" {
-		apiKey = "rmit-val-key"
-	}
-	baseURL := strings.TrimRight(proxyBaseURL, "/") + "/v1"
-
-	var existingModels []any
-	if em, ok := rawMap["models"].([]any); ok {
-		for _, m := range em {
-			if mm, ok := m.(map[string]any); ok {
-				if ab, _ := mm["apiBase"].(string); !strings.Contains(ab, "8765") && !strings.Contains(ab, "rmit-val") {
-					existingModels = append(existingModels, mm)
-				}
-			}
-		}
-	}
-
+	base := strings.TrimRight(proxyBaseURL, "/") + "/v1"
 	count := 0
-	for _, m := range valModels {
-		// Prioritize main flagship models for Continue UI
-		isFlagship := strings.Contains(m.ID, "opus") ||
-			strings.Contains(m.ID, "sonnet") ||
-			strings.Contains(m.ID, "haiku") ||
-			strings.Contains(m.ID, "gpt-5") ||
-			strings.Contains(m.ID, "gpt-6") ||
-			strings.Contains(m.ID, "llama-4")
-		if !isFlagship {
-			continue
+	err = configfile.Update(path, func(data []byte) ([]byte, error) {
+		root, err := configfile.YAMLDocument(data)
+		if err != nil {
+			return nil, err
 		}
-
-		cModel := continueModel{
-			Name:     fmt.Sprintf("RMIT %s", m.Name),
-			Provider: "openai",
-			Model:    m.ID,
-			APIKey:   apiKey,
-			APIBase:  baseURL,
-			Roles:    []string{"chat", "edit", "apply"},
+		sequence, err := configfile.YAMLField(root.Content[0], "models", yaml.SequenceNode)
+		if err != nil {
+			return nil, err
 		}
-		existingModels = append(existingModels, cModel)
-		count++
-	}
-
-	rawMap["models"] = existingModels
-
-	outBytes, err := yaml.Marshal(rawMap)
+		kept := make([]*yaml.Node, 0, len(sequence.Content))
+		for _, node := range sequence.Content {
+			if node.Kind != yaml.MappingNode {
+				return nil, fmt.Errorf("each model must be a mapping")
+			}
+			var m map[string]any
+			if err := node.Decode(&m); err != nil {
+				return nil, err
+			}
+			name, _ := m["name"].(string)
+			apiBase, _ := m["apiBase"].(string)
+			if strings.HasPrefix(name, "RMIT ") && apiBase == base {
+				continue
+			}
+			kept = append(kept, node)
+		}
+		for _, m := range models {
+			if !(strings.Contains(m.ID, "opus") || strings.Contains(m.ID, "sonnet") || strings.Contains(m.ID, "haiku") || strings.Contains(m.ID, "gpt-5") || strings.Contains(m.ID, "gpt-6") || strings.Contains(m.ID, "llama-4")) {
+				continue
+			}
+			node := new(yaml.Node)
+			err := node.Encode(continueModel{Name: "RMIT " + m.Name, Provider: "openai", Model: m.ID, APIKey: proxyAPIKey, APIBase: base, Roles: []string{"chat", "edit", "apply"}})
+			if err != nil {
+				return nil, err
+			}
+			kept = append(kept, node)
+			count++
+		}
+		sequence.Content = kept
+		return configfile.MarshalYAML(root)
+	})
 	if err != nil {
 		return 0, "", err
 	}
-
-	if err := os.MkdirAll(filepath.Dir(continuePath), 0755); err != nil {
-		return 0, "", err
-	}
-	if err := os.WriteFile(continuePath, outBytes, 0644); err != nil {
-		return 0, "", err
-	}
-
-	return count, continuePath, nil
+	return count, path, nil
 }

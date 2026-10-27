@@ -1,12 +1,30 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"val2harness/internal/configfile"
 )
+
+// LocalBaseURL chooses a connectable local address for wildcard listeners.
+func LocalBaseURL(addr string) string {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "http://" + addr
+	}
+	if host == "" || host == "0.0.0.0" {
+		host = "127.0.0.1"
+	}
+	if host == "::" {
+		host = "::1"
+	}
+	return "http://" + net.JoinHostPort(host, port)
+}
 
 const (
 	DefaultUpstreamURL = "https://val.rmit.edu.au"
@@ -14,10 +32,12 @@ const (
 )
 
 type Config struct {
-	Token       string `json:"token"`
-	UpstreamURL string `json:"upstream_url"`
-	ListenAddr  string `json:"listen_addr"`
-	APIKey      string `json:"api_key,omitempty"`
+	Token                 string `json:"token"`
+	UpstreamURL           string `json:"upstream_url"`
+	ListenAddr            string `json:"listen_addr"`
+	APIKey                string `json:"api_key,omitempty"`
+	DaemonControlToken    string `json:"-"`
+	DaemonControlIdentity string `json:"-"`
 }
 
 func DefaultConfig() *Config {
@@ -53,12 +73,30 @@ func Load() (*Config, error) {
 		return cfg, err
 	}
 
-	data, err := os.ReadFile(path)
-	if err == nil {
-		if err := json.Unmarshal(data, cfg); err != nil {
+	// Provision against disk state, before transient environment overrides. The
+	// shared file lock makes concurrent CLI/daemon first loads choose one key.
+	err = configfile.Update(path, func(data []byte) ([]byte, error) {
+		values, err := configfile.JSONObject(data)
+		if err != nil {
 			return nil, err
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
+		if data != nil {
+			if err := json.Unmarshal(data, cfg); err != nil {
+				return nil, err
+			}
+		}
+		if cfg.APIKey != "" {
+			return data, nil
+		}
+		secret := make([]byte, 32)
+		if _, err := rand.Read(secret); err != nil {
+			return nil, err
+		}
+		cfg.APIKey = base64.RawURLEncoding.EncodeToString(secret)
+		values["api_key"] = cfg.APIKey
+		return json.MarshalIndent(values, "", "  ")
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -86,10 +124,15 @@ func (c *Config) Save() error {
 	}
 
 	path := filepath.Join(dir, "config.json")
-	data, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(path, data, 0600)
+	return configfile.Update(path, func(data []byte) ([]byte, error) {
+		values, err := configfile.JSONObject(data)
+		if err != nil {
+			return nil, err
+		}
+		values["token"] = c.Token
+		values["upstream_url"] = c.UpstreamURL
+		values["listen_addr"] = c.ListenAddr
+		values["api_key"] = c.APIKey
+		return json.MarshalIndent(values, "", "  ")
+	})
 }

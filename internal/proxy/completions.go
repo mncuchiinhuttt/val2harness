@@ -2,9 +2,12 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
+
+	"val2harness/internal/valclient"
 )
 
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -27,17 +30,24 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	upstreamResp, err := s.client.ProxyChat(r.Context(), r.Body)
 	if err != nil {
+		status, kind := http.StatusBadGateway, "upstream_error"
+		if errors.Is(err, valclient.ErrChatRequestTooLarge) {
+			status, kind = http.StatusRequestEntityTooLarge, "request_too_large"
+		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadGateway)
+		w.WriteHeader(status)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": map[string]any{
 				"message": "Upstream error: " + err.Error(),
-				"type":    "upstream_error",
+				"type":    kind,
 			},
 		})
 		return
 	}
 	defer upstreamResp.Body.Close()
+	if retry := upstreamResp.Header.Get("Retry-After"); retry != "" {
+		w.Header().Set("Retry-After", retry)
+	}
 
 	// Copy upstream response headers
 	contentType := upstreamResp.Header.Get("Content-Type")

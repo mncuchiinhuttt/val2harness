@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"val2harness/internal/config"
@@ -20,6 +21,22 @@ import (
 var staticFS embed.FS
 
 func RegisterWebRoutes(mux *http.ServeMux, cfg *config.Config, client *valclient.Client, onTokenUpdate func(string)) {
+	var tokenUpdateMu sync.Mutex
+	persistToken := func(token string) error {
+		tokenUpdateMu.Lock()
+		defer tokenUpdateMu.Unlock()
+		next := *cfg
+		next.Token = token
+		if err := next.Save(); err != nil {
+			return err
+		}
+		if onTokenUpdate != nil {
+			onTokenUpdate(token)
+		} else {
+			client.SetToken(token)
+		}
+		return nil
+	}
 	subFS, err := fs.Sub(staticFS, "static")
 	if err == nil {
 		mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(subFS))))
@@ -76,6 +93,10 @@ func RegisterWebRoutes(mux *http.ServeMux, cfg *config.Config, client *valclient
 	})
 
 	mux.HandleFunc("/api/local/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", 405)
+			return
+		}
 		go func() {
 			var cmd *exec.Cmd
 			switch runtime.GOOS {
@@ -93,17 +114,19 @@ func RegisterWebRoutes(mux *http.ServeMux, cfg *config.Config, client *valclient
 	})
 
 	mux.HandleFunc("/api/local/logout", func(w http.ResponseWriter, r *http.Request) {
-		cfg.Token = ""
-		_ = cfg.Save()
-		client.SetToken("")
-		if onTokenUpdate != nil {
-			onTokenUpdate("")
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", 405)
+			return
+		}
+		if err := persistToken(""); err != nil {
+			http.Error(w, "Could not save account settings", 500)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
 	})
 
-	mux.HandleFunc("/api/local/token", func(w http.ResponseWriter, r *http.Request) {
+	tokenHandler := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -111,21 +134,21 @@ func RegisterWebRoutes(mux *http.ServeMux, cfg *config.Config, client *valclient
 		var req struct {
 			Token string `json:"token"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 65536)).Decode(&req); err != nil || strings.TrimSpace(req.Token) == "" {
 			http.Error(w, "Invalid token", http.StatusBadRequest)
 			return
 		}
 
-		cfg.Token = strings.TrimSpace(req.Token)
-		_ = cfg.Save()
-		client.SetToken(cfg.Token)
-		if onTokenUpdate != nil {
-			onTokenUpdate(cfg.Token)
+		if err := persistToken(strings.TrimSpace(req.Token)); err != nil {
+			http.Error(w, "Could not save account settings", 500)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
-	})
+	}
+	mux.HandleFunc("/api/local/token", tokenHandler)
+	mux.HandleFunc("/api/local/import-token", tokenHandler)
 
 	registerHarnessRoutes(mux, cfg, client)
 }

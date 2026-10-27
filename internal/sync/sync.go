@@ -2,11 +2,14 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"val2harness/internal/config"
+	"val2harness/internal/configfile"
 	"val2harness/internal/valclient"
 )
 
@@ -50,14 +53,9 @@ func getHarnessPaths(harness string) (target, backup string, err error) {
 	case "pi":
 		target = filepath.Join(home, ".pi", "models.json")
 	case "opencode":
-		p1 := filepath.Join(home, ".config", "opencode", "opencode.json")
-		p2 := filepath.Join(home, ".opencode", "opencode.json")
-		if _, err := os.Stat(p1 + ".bak"); err == nil {
-			target = p1
-		} else if _, err := os.Stat(p2 + ".bak"); err == nil {
-			target = p2
-		} else {
-			target = p1
+		target, err = openCodePath(home)
+		if err != nil {
+			return "", "", err
 		}
 	case "continue":
 		target = filepath.Join(home, ".continue", "config.yaml")
@@ -78,31 +76,63 @@ func HasBackup(harness string) bool {
 }
 
 func RestoreHarness(harness string) (string, error) {
-	target, backup, err := getHarnessPaths(harness)
+	harness = strings.ToLower(harness)
+	target, _, err := getHarnessPaths(harness)
 	if err != nil {
 		return "", err
 	}
-	data, err := os.ReadFile(backup)
+	err = configfile.Restore(target, func(data []byte) error {
+		if harness == "pi" || harness == "opencode" {
+			_, err := configfile.JSONObject(data)
+			return err
+		}
+		_, err := configfile.YAMLDocument(data)
+		return err
+	})
 	if err != nil {
-		return "", fmt.Errorf("backup file not found: %s", backup)
-	}
-	if err := os.WriteFile(target, data, 0644); err != nil {
-		return "", fmt.Errorf("failed to restore %s: %w", target, err)
+		return "", err
 	}
 	return target, nil
 }
 
-func GenerateEnvSnippet(addr string) string {
-	baseURL := strings.TrimRight(addr, "/")
-	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-		baseURL = "http://" + baseURL
+func openCodePath(home string) (string, error) {
+	paths := []string{filepath.Join(home, ".config", "opencode", "opencode.json"), filepath.Join(home, ".opencode", "opencode.json")}
+	var chosen string
+	for _, p := range paths {
+		if _, err := os.Lstat(p); err == nil {
+			if chosen != "" {
+				return "", fmt.Errorf("both OpenCode settings locations exist; select one before syncing")
+			}
+			chosen = p
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
 	}
+	if chosen != "" {
+		return chosen, nil
+	}
+	for _, p := range paths {
+		if _, err := os.Lstat(p + ".bak"); err == nil {
+			if chosen != "" {
+				return "", fmt.Errorf("multiple OpenCode backups found; restore one manually")
+			}
+			chosen = p
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+	}
+	if chosen != "" {
+		return chosen, nil
+	}
+	return paths[0], nil
+}
 
-	var sb strings.Builder
-	sb.WriteString("# Environment variables for AI Agent Harnesses (Cursor, Claude Code, Aider, zcode)\n")
-	sb.WriteString(fmt.Sprintf("export OPENAI_BASE_URL=\"%s/v1\"\n", baseURL))
-	sb.WriteString("export OPENAI_API_KEY=\"rmit-val-key\"\n")
-	sb.WriteString(fmt.Sprintf("export ANTHROPIC_BASE_URL=\"%s\"\n", baseURL))
-	sb.WriteString("export ANTHROPIC_API_KEY=\"rmit-val-key\"\n")
-	return sb.String()
+func GenerateEnvSnippet(addr, key string) string {
+	base := config.LocalBaseURL(addr)
+	quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'" }
+	return "# Private local connection settings; share only with tools you trust.\n" +
+		"export OPENAI_BASE_URL=" + quote(base+"/v1") + "\n" +
+		"export OPENAI_API_KEY=" + quote(key) + "\n" +
+		"export ANTHROPIC_BASE_URL=" + quote(base) + "\n" +
+		"export ANTHROPIC_API_KEY=" + quote(key) + "\n"
 }

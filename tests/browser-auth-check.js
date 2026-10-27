@@ -1,0 +1,30 @@
+async (page) => {
+  const check = (condition, message) => { if (!condition) throw new Error(message); };
+  await page.waitForFunction(() => document.getElementById('modelsCount').textContent === '1 Models');
+  check(await page.locator('#localAuthPanel').isHidden(), 'ticket sign-in did not unlock');
+  check(await page.evaluate(() => location.hash === ''), 'ticket remains in URL');
+  await page.getByRole('button', { name: 'Model Playground', exact: true }).click();
+  await page.locator('#chatInput').fill('Synthetic test prompt');
+  await page.getByRole('button', { name: 'Stream Test', exact: true }).click();
+  await page.waitForFunction(() => document.getElementById('chatHistory').textContent.includes('Synthetic browser reply'));
+  await page.getByRole('button', { name: 'Sync Harnesses', exact: true }).click();
+  await page.locator('#sync-pi-btn').click();
+  await page.waitForFunction(() => document.getElementById('badge-pi').textContent === 'Backup Ready');
+  await page.locator('#restore-pi-btn').click();
+  await page.waitForFunction(() => document.getElementById('toastContainer').textContent.includes('PI Restored'));
+  check(await page.locator('#envSnippet').textContent().then(s => s.includes('browser-fixture-local-key')), 'real local key missing from protected settings');
+  await page.evaluate(() => sessionStorage.clear());
+  await page.reload();
+  check(await page.locator('#localAuthPanel').isVisible(), 'no-session browser can see owner interface');
+  check(await page.locator('#gatewayContent').isHidden(), 'owner interface not locked');
+  await page.locator('#gatewayKeyInput').fill('incorrect-local-key');
+  await page.getByRole('button', { name: 'Unlock Gateway', exact: true }).click();
+  await page.waitForFunction(() => document.getElementById('gatewayAuthError').textContent.includes('not accepted'));
+  check(await page.locator('#gatewayContent').isHidden(), 'incorrect key unlocked gateway');
+  await page.locator('#gatewayKeyInput').fill('browser-fixture-local-key');
+  await page.getByRole('button', { name: 'Unlock Gateway', exact: true }).click();
+  await page.waitForFunction(() => document.getElementById('localAuthPanel').hidden);
+  check(await page.locator('#gatewayKeyInput').inputValue() === '', 'permanent key retained in input');
+  check(await page.evaluate(() => sessionStorage.getItem('val2harness.session') !== 'browser-fixture-local-key'), 'permanent key stored as browser session');
+  console.log('PASS: ticket sign-in, URL cleanup, authenticated status/models/streaming/sync/restore/settings, locked reload, wrong-key denial, and manual unlock.');
+}

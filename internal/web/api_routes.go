@@ -32,7 +32,7 @@ func registerHarnessRoutes(mux *http.ServeMux, cfg *config.Config, client *valcl
 			Harness string `json:"harness"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
-		proxyBaseURL := "http://" + cfg.ListenAddr
+		proxyBaseURL := config.LocalBaseURL(cfg.ListenAddr)
 		var count int
 		var path string
 		var err error
@@ -79,7 +79,7 @@ func registerHarnessRoutes(mux *http.ServeMux, cfg *config.Config, client *valcl
 
 	mux.HandleFunc("/api/local/env", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Write([]byte(valSync.GenerateEnvSnippet(cfg.ListenAddr)))
+		w.Write([]byte(valSync.GenerateEnvSnippet(cfg.ListenAddr, cfg.APIKey)))
 	})
 
 	mux.HandleFunc("/api/local/export", func(w http.ResponseWriter, r *http.Request) {
@@ -87,11 +87,22 @@ func registerHarnessRoutes(mux *http.ServeMux, cfg *config.Config, client *valcl
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		count, outDir, err := exporter.ExportAllChats(r.Context(), client, "exports")
+		outDir, err := exporter.NewRunDirectory("exports")
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(500)
+			json.NewEncoder(w).Encode(map[string]any{"status": "error", "count": 0, "dir": "exports", "error": "Could not create a private export folder: " + err.Error()})
+			return
+		}
+		count, outDir, err := exporter.ExportAllChats(r.Context(), client, outDir)
 		w.Header().Set("Content-Type", "application/json")
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+			status := "error"
+			if count > 0 {
+				status = "partial"
+			}
+			json.NewEncoder(w).Encode(map[string]any{"status": status, "count": count, "dir": outDir, "error": err.Error()})
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "count": count, "dir": outDir})

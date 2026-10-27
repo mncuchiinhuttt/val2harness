@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"val2harness/internal/configfile"
 	"val2harness/internal/valclient"
 )
 
@@ -34,125 +35,43 @@ func GetOMPModelsPath() (string, error) {
 }
 
 func SyncModels(ctx context.Context, client *valclient.Client, proxyBaseURL, proxyAPIKey string) (int, string, error) {
-	valModels, err := client.ListModels(ctx)
+	models, err := client.ListModels(ctx)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to list models from RMIT Val: %w", err)
+		return 0, "", fmt.Errorf("failed to list models from Val: %w", err)
 	}
-
-	ompPath, err := GetOMPModelsPath()
+	path, err := GetOMPModelsPath()
 	if err != nil {
 		return 0, "", err
 	}
-
-	var root yaml.Node
-	fileData, err := os.ReadFile(ompPath)
-	if err == nil {
-		// Create backup
-		_ = os.WriteFile(ompPath+".bak", fileData, 0644)
-		if err := yaml.Unmarshal(fileData, &root); err != nil {
-			return 0, "", fmt.Errorf("failed to parse existing models.yml: %w", err)
-		}
-	} else if os.IsNotExist(err) {
-		// New document
-		root = yaml.Node{
-			Kind: yaml.DocumentNode,
-			Content: []*yaml.Node{
-				{
-					Kind: yaml.MappingNode,
-				},
-			},
-		}
-	} else {
-		return 0, "", err
+	if proxyAPIKey == "" {
+		proxyAPIKey = "rmit-val-key"
 	}
-
-	if len(root.Content) == 0 {
-		root.Content = append(root.Content, &yaml.Node{Kind: yaml.MappingNode})
-	}
-	docMap := root.Content[0]
-
-	// Find or create "providers" map
-	var providersNode *yaml.Node
-	for i := 0; i < len(docMap.Content); i += 2 {
-		if docMap.Content[i].Value == "providers" {
-			providersNode = docMap.Content[i+1]
-			break
-		}
-	}
-	if providersNode == nil {
-		providersNode = &yaml.Node{Kind: yaml.MappingNode}
-		docMap.Content = append(docMap.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Value: "providers"},
-			providersNode,
-		)
-	}
-
-	// Prepare rmit-val provider
-	apiKey := proxyAPIKey
-	if apiKey == "" {
-		apiKey = "rmit-val-key"
-	}
-	baseURL := strings.TrimRight(proxyBaseURL, "/") + "/v1"
-
-	var ompModels []OMPModel
-	for _, m := range valModels {
-		ctxWindow := 200000
-		maxTok := 65536
+	provider := OMPProvider{BaseURL: strings.TrimRight(proxyBaseURL, "/") + "/v1", APIKey: proxyAPIKey, API: "openai-completions"}
+	for _, m := range models {
+		max := 65536
 		if strings.Contains(m.ID, "opus") || strings.Contains(m.ID, "sonnet") {
-			maxTok = 128000
+			max = 128000
 		}
-		ompModels = append(ompModels, OMPModel{
-			ID:            m.ID,
-			Name:          m.Name,
-			ContextWindow: ctxWindow,
-			MaxTokens:     maxTok,
-		})
+		provider.Models = append(provider.Models, OMPModel{ID: m.ID, Name: m.Name, ContextWindow: 200000, MaxTokens: max})
 	}
-
-	newProvider := OMPProvider{
-		BaseURL: baseURL,
-		APIKey:  apiKey,
-		API:     "openai-completions",
-		Models:  ompModels,
-	}
-
-	var providerNode yaml.Node
-	pBytes, err := yaml.Marshal(newProvider)
+	err = configfile.Update(path, func(data []byte) ([]byte, error) {
+		root, err := configfile.YAMLDocument(data)
+		if err != nil {
+			return nil, err
+		}
+		providers, err := configfile.YAMLField(root.Content[0], "providers", yaml.MappingNode)
+		if err != nil {
+			return nil, err
+		}
+		node := new(yaml.Node)
+		if err := node.Encode(provider); err != nil {
+			return nil, err
+		}
+		configfile.SetYAMLField(providers, "rmit-val", node)
+		return configfile.MarshalYAML(root)
+	})
 	if err != nil {
 		return 0, "", err
 	}
-	if err := yaml.Unmarshal(pBytes, &providerNode); err != nil {
-		return 0, "", err
-	}
-
-	// Update or insert "rmit-val" key
-	found := false
-	for i := 0; i < len(providersNode.Content); i += 2 {
-		if providersNode.Content[i].Value == "rmit-val" {
-			providersNode.Content[i+1] = providerNode.Content[0]
-			found = true
-			break
-		}
-	}
-	if !found {
-		providersNode.Content = append(providersNode.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Value: "rmit-val"},
-			providerNode.Content[0],
-		)
-	}
-
-	// Write back
-	outData, err := yaml.Marshal(&root)
-	if err != nil {
-		return 0, "", fmt.Errorf("failed to serialize updated models.yml: %w", err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(ompPath), 0755); err != nil {
-		return 0, "", err
-	}
-	if err := os.WriteFile(ompPath, outData, 0644); err != nil {
-		return 0, "", err
-	}
-
-	return len(ompModels), ompPath, nil
+	return len(models), path, nil
 }
