@@ -2,32 +2,32 @@
   <title id="title">Val access, connected to your workflow</title>
   <desc id="description">A local Go gateway connects your authorized RMIT Val account to coding agents through OpenAI Chat Completions and Anthropic Messages.</desc>
   <defs>
-    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b1729"/><stop offset="1" stop-color="#102c36"/></linearGradient>
-    <linearGradient id="accent" x1="0" x2="1"><stop stop-color="#51d5f0"/><stop offset="1" stop-color="#8bf0bf"/></linearGradient>
-    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#b2d6e5" stroke-opacity=".045"/></pattern>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101610"/><stop offset="1" stop-color="#141d1a"/></linearGradient>
+    <linearGradient id="accent" x1="0" x2="1"><stop stop-color="#c6ff63"/><stop offset="1" stop-color="#78db92"/></linearGradient>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#a8c4b0" stroke-opacity=".045"/></pattern>
   </defs>
   <rect width="1200" height="360" rx="24" fill="url(#background)"/>
   <rect width="1200" height="360" rx="24" fill="url(#grid)"/>
   <g font-family="Inter,Segoe UI,Arial,sans-serif">
-    <rect x="54" y="38" width="96" height="26" rx="13" fill="#183a46"/>
-    <text x="102" y="56" fill="#94f0d1" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="1.7">LOCAL FIRST</text>
-    <text x="54" y="113" fill="#f0f7fc" font-size="42" font-weight="700" letter-spacing="-1">Bring Val to your workflow.</text>
-    <text x="56" y="147" fill="#acc4d3" font-size="18">One Go gateway. Familiar APIs. Your choice of tools.</text>
+    <rect x="54" y="38" width="96" height="26" rx="13" fill="#173b35"/>
+    <text x="102" y="56" fill="#c6ff63" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="1.7">LOCAL FIRST</text>
+    <text x="54" y="113" fill="#f4f6ed" font-size="42" font-weight="700" letter-spacing="-1">Bring Val to your workflow.</text>
+    <text x="56" y="147" fill="#c7d0c4" font-size="18">One Go gateway. Familiar APIs. Your choice of tools.</text>
     <path d="M330 250H465M735 250H870" fill="none" stroke="url(#accent)" stroke-width="2"/>
-    <path d="m340 244-10 6 10 6m115-12 10 6-10 6m290-12-10 6 10 6m115-12 10 6-10 6" fill="none" stroke="#77e6d3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="54" y="193" width="276" height="116" rx="14" fill="#122438" stroke="#2b465a"/>
-    <rect x="465" y="183" width="270" height="136" rx="16" fill="#14323d" stroke="#72e2cd" stroke-opacity=".8"/>
-    <rect x="870" y="193" width="276" height="116" rx="14" fill="#122438" stroke="#2b465a"/>
-    <text x="78" y="223" fill="#8aa7bc" font-size="10" font-weight="700" letter-spacing="1.6">YOUR ACCOUNT</text>
-    <text x="78" y="256" fill="#edf7ff" font-size="25" font-weight="650">RMIT Val</text>
-    <text x="78" y="284" fill="#9db6c8" font-size="14">The models available to you</text>
-    <text x="600" y="213" fill="#8bf0bf" font-size="10" font-weight="700" letter-spacing="1.6" text-anchor="middle">ON YOUR COMPUTER</text>
-    <text x="600" y="252" fill="#f2fcfa" font-size="27" font-weight="700" text-anchor="middle">val2harness</text>
-    <text x="600" y="283" fill="#b3dad9" font-size="14" text-anchor="middle">OpenAI + Anthropic APIs</text>
-    <text x="894" y="223" fill="#8aa7bc" font-size="10" font-weight="700" letter-spacing="1.6">YOUR TOOLS</text>
-    <text x="894" y="256" fill="#edf7ff" font-size="25" font-weight="650">Agents &amp; SDKs</text>
-    <text x="894" y="284" fill="#9db6c8" font-size="14">Tools execute in your harness</text>
-    <text x="397" y="233" fill="#87aab8" font-size="11" text-anchor="middle">Val access</text>
-    <text x="802" y="233" fill="#87aab8" font-size="11" text-anchor="middle">API calls</text>
+    <path d="m340 244-10 6 10 6m115-12 10 6-10 6m290-12-10 6 10 6m115-12 10 6-10 6" fill="none" stroke="#c6ff63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="54" y="193" width="276" height="116" rx="14" fill="#141d1a" stroke="#367a5d"/>
+    <rect x="465" y="183" width="270" height="136" rx="16" fill="#173b35" stroke="#c6ff63" stroke-opacity=".8"/>
+    <rect x="870" y="193" width="276" height="116" rx="14" fill="#141d1a" stroke="#367a5d"/>
+    <text x="78" y="223" fill="#b5c2b3" font-size="10" font-weight="700" letter-spacing="1.6">YOUR ACCOUNT</text>
+    <text x="78" y="256" fill="#f4f6ed" font-size="25" font-weight="650">RMIT Val</text>
+    <text x="78" y="284" fill="#c7d0c4" font-size="14">The models available to you</text>
+    <text x="600" y="213" fill="#78db92" font-size="10" font-weight="700" letter-spacing="1.6" text-anchor="middle">ON YOUR COMPUTER</text>
+    <text x="600" y="252" fill="#f4f6ed" font-size="27" font-weight="700" text-anchor="middle">val2harness</text>
+    <text x="600" y="283" fill="#d8ecc1" font-size="14" text-anchor="middle">OpenAI + Anthropic APIs</text>
+    <text x="894" y="223" fill="#b5c2b3" font-size="10" font-weight="700" letter-spacing="1.6">YOUR TOOLS</text>
+    <text x="894" y="256" fill="#f4f6ed" font-size="25" font-weight="650">Agents &amp; SDKs</text>
+    <text x="894" y="284" fill="#c7d0c4" font-size="14">Tools execute in your harness</text>
+    <text x="397" y="233" fill="#b5c2b3" font-size="11" text-anchor="middle">Val access</text>
+    <text x="802" y="233" fill="#b5c2b3" font-size="11" text-anchor="middle">API calls</text>
   </g>
 </svg>
