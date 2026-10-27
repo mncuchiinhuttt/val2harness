@@ -1,228 +1,285 @@
-# val2harness
+<p align="center">
+  <img src="docs/assets/readme-hero.svg" alt="Your RMIT Val account, a local val2harness gateway, and your choice of agents and SDKs." width="1200">
+</p>
 
-**High-Performance AI Bridge Connecting RMIT Val to Agent Harnesses**
+<h1 align="center">val2harness</h1>
 
-[![Go](https://img.shields.io/badge/Language-Go%201.26-00ADD8?style=flat-square&logo=go)](https://golang.org)
-[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-blue?style=flat-square)]()
-[![Architecture](https://img.shields.io/badge/Arch-ARM64%20%7C%20x86__64-informational?style=flat-square)]()
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+<p align="center"><strong>Use your Val account with the tools you already work in.</strong></p>
 
-**val2harness** bridges institutional access on **RMIT Val AI** (`https://val.rmit.edu.au`) directly into developer agent harnesses, including **OMP**, **Pi Harness**, **OpenCode**, **Claude Code**, **Continue**, **Cursor**, and **zcode**.
+<p align="center">
+  <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 1.26 or newer"></a>
+  <a href="#compatibility"><img src="https://img.shields.io/badge/APIs-OpenAI%20%2B%20Anthropic-7BDCB5?style=flat-square" alt="OpenAI Chat Completions and Anthropic Messages"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-8B9DFF?style=flat-square" alt="MIT license"></a>
+</p>
 
-Engineered in Go as a single static binary (<10MB, <15MB RAM), it exposes dual native wire-format gateways: **OpenAI-compatible Chat Completions** and **Anthropic-compatible Messages API** with real-time Server-Sent Events (SSE) streaming.
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#connect-a-tool">Connect a tool</a> ·
+  <a href="#compatibility">Compatibility</a> ·
+  <a href="#your-data-stays-yours">Your data</a> ·
+  <a href="#development">Development</a>
+</p>
 
----
+**val2harness** is a local bridge between your authorized [RMIT Val](https://val.rmit.edu.au)
+account and coding agents. It translates familiar API requests, forwards them to
+Val, and returns the response. Your chosen harness runs the tools.
 
-## Downloads
+- **One executable.** Go gateway, terminal menu, and embedded web dashboard.
+- **Two familiar APIs.** OpenAI Chat Completions and an Anthropic Messages adapter.
+- **Practical connections.** Configuration writers for OMP, Pi, OpenCode, and Continue.
+- **User-owned data.** Local credentials, preserved settings, and private conversation exports.
 
-Precompiled static binaries for version **v1.0.0**:
+> [!IMPORTANT]
+> This development branch contains fixes newer than the published **v1.0.0** packages.
+> Build this branch to use the behavior documented here. Model access and quota
+> still depend on your Val account.
 
-| Platform | Architecture | Package |
-| :--- | :--- | :--- |
-| **macOS** | Apple Silicon (M1/M2/M3/M4) | [val2harness-darwin-arm64.tar.gz](https://github.com/mncuchiinhuttt/val2harness/releases/download/v1.0.0/val2harness-darwin-arm64.tar.gz) |
-| **macOS** | Intel (x86_64) | [val2harness-darwin-amd64.tar.gz](https://github.com/mncuchiinhuttt/val2harness/releases/download/v1.0.0/val2harness-darwin-amd64.tar.gz) |
-| **Linux** | x86_64 | [val2harness-linux-amd64.tar.gz](https://github.com/mncuchiinhuttt/val2harness/releases/download/v1.0.0/val2harness-linux-amd64.tar.gz) |
-| **Linux** | ARM64 / aarch64 | [val2harness-linux-arm64.tar.gz](https://github.com/mncuchiinhuttt/val2harness/releases/download/v1.0.0/val2harness-linux-arm64.tar.gz) |
-| **Windows** | x64 (64-bit) | [val2harness-windows-amd64.zip](https://github.com/mncuchiinhuttt/val2harness/releases/download/v1.0.0/val2harness-windows-amd64.zip) |
-| **Windows** | ARM64 | [val2harness-windows-arm64.zip](https://github.com/mncuchiinhuttt/val2harness/releases/download/v1.0.0/val2harness-windows-arm64.zip) |
+## Quick start
 
-All packages are verified via [checksums.txt](https://github.com/mncuchiinhuttt/val2harness/releases/download/v1.0.0/checksums.txt).
+### 1. Build the current branch
 
-### Quick Installation
+Install [Go 1.26 or newer](https://go.dev/dl/), then clone this development branch:
 
-**macOS / Linux:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/mncuchiinhuttt/val2harness/main/install.sh | bash
-```
-
-**Windows (PowerShell):**
-```powershell
-irm https://raw.githubusercontent.com/mncuchiinhuttt/val2harness/main/install.ps1 | iex
-```
-
----
-
-## System Architecture
-
-```mermaid
-flowchart TD
-    subgraph Clients["Developer Harnesses & Tools"]
-        direction LR
-        C1["OMP"]
-        C2["Pi Coding Agent"]
-        C3["OpenCode"]
-        C4["Claude Code"]
-        C5["Cursor / zcode / Aider"]
-    end
-
-    Clients -->|"POST /v1/chat/completions (OpenAI Wire)"| Gateway
-    Clients -->|"POST /v1/messages (Anthropic Wire)"| Gateway
-    Clients -->|"GET /v1/models"| Gateway
-
-    subgraph Gateway["val2harness Local Gateway (127.0.0.1:8765)"]
-        direction TB
-        G1["Interactive Terminal UI (Pointer Navigation)"]
-        G2["Multi-Harness Sync Engine (OMP, Pi, OpenCode, Continue)"]
-        G3["Background Daemon Orchestrator (PID/log management)"]
-        G4["SSE Multiplexer & Anthropic Protocol Translator"]
-        G5["Embedded Web Dashboard (Zero external assets)"]
-    end
-
-    Gateway -->|"Authorization: Bearer <Val JWT>"| Upstream["RMIT Val Backend (AWS Bedrock Core)<br/>Claude Opus 4.7/5 · Claude Sonnet 4.6/5 · GPT-5/6"]
-```
-
----
-
-## Interactive Terminal UI
-
-Run `val2harness` without arguments to launch the interactive TUI. Use keyboard arrow keys (`↑` / `↓`) and `Enter` to navigate:
-
-```text
-val2harness · RMIT Val AI Bridge
-Status: ● Running (PID 4874) · Port: 127.0.0.1:8765
-────────────────────────────────────────────────────────────
-
-❯ Start Server (Background Daemon)
-  Stop Server
-  Check Server Status & Health
-  Open Web Dashboard in Browser
-  Quick Chat in Terminal (Test Opus 4.7/5)
-  Sync Models to ALL Harnesses (OMP, Pi, OpenCode, Continue)
-  Show Shell Environment Variables (Claude Code, Cursor, zcode)
-  View Available Models
-  Change Listen Port
-  Update RMIT Val Token
-  Export Chat History to Markdown
-  Exit
-
-Use ↑/↓ to navigate · Enter to select · Esc/q to exit
-```
-
----
-
-## Supported Models
-
-RMIT Val exposes 53 institutional models. Key flagship models available through `val2harness`:
-
-- `anthropic-claude-opus-4-7`: Anthropic premier multimodal reasoning model
-- `anthropic-claude-opus-5`: Latest Anthropic flagship foundation model
-- `anthropic-claude-sonnet-4-6`: High-efficiency agent coding model
-- `anthropic-claude-sonnet-5`: Next-generation reasoning and synthesis model
-- `anthropic-claude-haiku-4-5`: High-speed compact model
-- `openai-gpt-5` / `openai-gpt-5.1` / `openai-gpt-5.2` / `openai-gpt-5.4`
-- `openai-gpt-5.6-luna` / `openai-gpt-5.6-terra`
-- `openai-gpt-6-luna` / `openai-gpt-6-sol`
-- `meta-llama-4-maverick` / `meta-llama-4-scout`
-
----
-
-## Harness Integrations
-
-### 1. Multi-Harness Auto-Sync
-
-Sync all detected agent harnesses in one step:
-
-```bash
-val2harness sync
-```
-
-This writes provider configuration blocks directly into:
-- **OMP**: `~/.omp/models.yml` (53 models)
-- **Pi Harness**: `~/.pi/models.json` (53 models)
-- **OpenCode**: `~/.config/opencode/opencode.json` (53 models)
-- **Continue**: `~/.continue/config.yaml` (flagship models)
-
-### 2. Claude Code CLI
-
-Claude Code communicates over the Anthropic Messages API (`/v1/messages`). `val2harness` translates requests and streams native Anthropic SSE events:
-
-```bash
-export ANTHROPIC_BASE_URL="http://127.0.0.1:8765"
-export ANTHROPIC_API_KEY="rmit-val-key"
-
-claude
-```
-
-### 3. Cursor, zcode, Aider & OpenAI SDKs
-
-Export universal OpenAI variables:
-
-```bash
-eval $(val2harness env)
-```
-
-Generated variables:
-```bash
-export OPENAI_BASE_URL="http://127.0.0.1:8765/v1"
-export OPENAI_API_KEY="rmit-val-key"
-export ANTHROPIC_BASE_URL="http://127.0.0.1:8765"
-export ANTHROPIC_API_KEY="rmit-val-key"
-```
-
----
-
-## CLI Command Reference
-
-```bash
-# Daemon Management
-val2harness start          # Launch background server on 127.0.0.1:8765
-val2harness stop           # Terminate running background server
-val2harness status         # Check PID, listen address, and health
-val2harness serve          # Run server in foreground (supports -addr and -upstream)
-
-# Interaction & Chat
-val2harness                # Launch interactive TUI
-val2harness chat           # Start streaming chat in terminal (Claude Opus 4.7)
-val2harness chat <model>   # e.g., val2harness chat anthropic-claude-opus-5
-val2harness open           # Open Web Dashboard in default browser
-
-# Sync & Configuration
-val2harness sync           # Sync models to OMP, Pi, OpenCode, and Continue
-val2harness env            # Print shell export commands
-val2harness models         # List all 53 available models
-val2harness token <jwt>    # Set RMIT Val Bearer JWT token
-val2harness export         # Export conversation history to ./exports/*.md
-```
-
----
-
-## Building From Source
-
-Prerequisites: Go 1.24+
-
-```bash
-git clone https://github.com/mncuchiinhuttt/val2harness.git
+```sh
+git clone --branch codex/agent-compatibility-readme https://github.com/mncuchiinhuttt/val2harness.git
 cd val2harness
-go build -ldflags="-s -w" -o val2harness .
-./val2harness
 ```
 
----
+**macOS / Linux**
+
+```sh
+go build -o val2harness .
+./val2harness open
+```
+
+**Windows PowerShell**
+
+```powershell
+go build -o val2harness.exe .
+.\val2harness.exe open
+```
+
+The `open` command starts the local gateway if needed and opens an authenticated
+dashboard. Prefer the terminal menu? Run the executable without a command and use
+the arrow keys and Enter.
+
+### 2. Connect your Val account
+
+Use the dashboard's login and token controls to connect your account. Keep the
+Val token on your own computer. The dashboard also shows your local connection
+details, available models, and gateway status.
+
+Check the models your account actually provides:
+
+```sh
+./val2harness models
+```
+
+Examples below use `./val2harness`. On Windows, use `.\val2harness.exe` instead.
+
+### 3. Connect your tool
+
+Run `./val2harness env` to view your private connection settings, then enter the
+base URL and **local key** in your tool. The local key is different from your Val
+token. See [Connect a tool](#connect-a-tool) for the API settings.
+
+<details>
+<summary><strong>Prefer a prebuilt download?</strong></summary>
+
+The [v1.0.0 release](https://github.com/mncuchiinhuttt/val2harness/releases/tag/v1.0.0)
+has packages for Windows, Linux, and macOS, including x64 and ARM64 builds, with a
+published `checksums.txt`. These older packages do **not** contain this branch's
+authentication, configuration-preservation, and agent-compatibility fixes.
+
+The existing [shell installer](install.sh) and [PowerShell installer](install.ps1)
+also install release binaries. They do not build this branch or automatically
+verify its new behavior. Use the source steps above for this development version.
+
+</details>
+
+## Connect a tool
+
+Default connection settings:
+
+| Client | Base URL | Credential |
+| --- | --- | --- |
+| OpenAI SDK / Chat Completions client | `http://127.0.0.1:8765/v1` | Your private **local key** |
+| Anthropic SDK / Claude Code | `http://127.0.0.1:8765` | Your private **local key** |
+
+Use your configured address if you changed the default port. Choose a model ID
+returned by `./val2harness models`; model discovery alone does not prove every
+feature works with that model.
+
+### Claude Code
+
+Set `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY` using the local connection details.
+Disable extended thinking for this adapter and retain Claude Code's tool permissions.
+
+```sh
+export ANTHROPIC_BASE_URL="http://127.0.0.1:8765"
+export ANTHROPIC_API_KEY="<your private local key>"
+export MAX_THINKING_TOKENS=0
+
+claude --model anthropic-claude-sonnet-4-6 --settings '{"alwaysThinkingEnabled":false}'
+```
+
+<details>
+<summary>PowerShell environment settings</summary>
+
+```powershell
+$env:ANTHROPIC_BASE_URL = 'http://127.0.0.1:8765'
+$env:ANTHROPIC_API_KEY = '<your private local key>'
+$env:MAX_THINKING_TOKENS = '0'
+
+claude --model anthropic-claude-sonnet-4-6 --settings '{"alwaysThinkingEnabled":false}'
+```
+
+</details>
+
+The example model must be available to your account. Signed/adaptive thinking,
+native server tools, and token-counting endpoints are outside this adapter's scope.
+
+### OpenAI-compatible clients
+
+Set `OPENAI_BASE_URL` and `OPENAI_API_KEY` in your SDK or tool. For Bash and Zsh,
+you can load the gateway's actual private settings directly:
+
+```sh
+eval "$(./val2harness env)"
+```
+
+The output includes your local key; keep it out of screenshots, issues, and commits.
+Clients must support **Chat Completions**. The OpenAI **Responses API** is not implemented.
+
+### OMP, Pi, OpenCode, and Continue
+
+```sh
+./val2harness sync
+```
+
+Sync writes provider settings for all four adapters. It preserves unrelated
+settings and retains the first original as a `.bak` backup. It refuses malformed
+files and unsafe states instead of overwriting them. See the
+[configuration and recovery notes](docs/CONFIG_AUTH_FIX.md) before restoring settings.
+
+## Compatibility
+
+The following evidence applies to the current source, checked on **27 October 2026**:
+
+| Client / flow | Verified behavior |
+| --- | --- |
+| Anthropic Python SDK **2.3.0** | Live Sonnet JSON tool/result loops and streaming image-assisted tool use. |
+| OpenAI Python SDK **3.38.0** | Live Sonnet streaming image → tool call → tool result → final reply; JSON loops also passed against a fake upstream. |
+| Claude Code **2.1.310** | Live Read and Edit execution, exact edited file bytes, returned tool results, and zero permission denials in a disposable fixture. |
+| Configuration adapters | OMP, Pi, OpenCode, and Continue preservation/restore checks; this does not establish every harness's runtime behavior. |
+
+The live Edit run met the file-content and tool-turn checks, then failed an overly
+strict final-reply formatting check. That checker was corrected and verified
+offline; the corrected checker was not rerun live. The full record is in
+[OpenAI and editing verification](docs/OPENAI_EDIT_CHECK.md).
+
+<details>
+<summary><strong>Protocol limits worth knowing</strong></summary>
+
+- **Messages SSE is buffered** until a complete turn, measured usage, and valid
+  tool arguments are available. Chat Completions response streaming stays incremental.
+- **Messages validates returned tools.** Undeclared or incomplete calls fail before
+  delivery. OpenAI response bytes remain pass-through; the consuming tool owns validation.
+- **Request limits:** 32 MiB for shared input and adapted payload; Messages has an
+  additional 8 MiB input limit. Oversized requests receive HTTP 413.
+- **Upstream features vary.** Some models reject controls or omit usage. Messages
+  requires measured usage and does not invent token counts.
+- **Effort/cache hints:** supported hint shapes are disclosed as adaptations;
+  no native thinking or prompt-caching behavior is promised.
+- **Separate APIs:** OpenAI Responses, Files, Batches, and Anthropic token counting
+  are not implemented.
+
+See the [full compatibility matrix](docs/AGENT_COMPATIBILITY.md) for content types,
+cancellation, tool choice, image limits, and tested failure cases.
+
+</details>
+
+## Your data stays yours
+
+Open-source code does not make your credentials, conversations, settings, or
+exports public. Your Val token stays in local configuration and authenticates
+requests to your configured Val service. The gateway's local key controls access
+to both inference and management, including settings and exports. Treat it as an
+owner credential.
+
+Your selected prompts, images, and tool results go to Val for inference. The
+service's logging and retention are outside this gateway's control. The harness
+executes tools with its own permissions; the gateway does not run model-requested tools.
+
+Exports create private files in a fresh `exports/run-*` directory by default.
+Existing export targets are not overwritten. See [export behavior](docs/EXPORT_FIX.md)
+for Windows ACLs, Unix permissions, and partial-result recovery.
+
+<details>
+<summary>Local access and upgrade notes</summary>
+
+- Default listener: `127.0.0.1:8765`. Keep it local unless you deliberately configure
+  and protect another deployment.
+- Configuration: `~/.config/val2harness/config.json`. The gateway provisions a random
+  local key when one is missing.
+- `open` exchanges a short-lived, single-use sign-in link for a tab session.
+  Restarting the gateway invalidates those sessions.
+- When upgrading from an older static-key build, restart the gateway and resync
+  harness settings so they use the current local key.
+- Settings/backup privacy on Windows depends on inherited account-directory ACLs;
+  explicit export ACLs do not imply every configuration file has the same guarantee.
+
+</details>
+
+## Everyday commands
+
+| Command | Purpose |
+| --- | --- |
+| `./val2harness` | Open the terminal menu |
+| `./val2harness open` | Open an authenticated dashboard |
+| `./val2harness start` / `stop` / `status` | Manage the background gateway |
+| `./val2harness serve` | Run in the foreground |
+| `./val2harness models` | Discover your account's models |
+| `./val2harness chat <model-id>` | Chat in the terminal |
+| `./val2harness sync` | Write the four supported harness configurations |
+| `./val2harness env` | View private client connection settings |
+| `./val2harness export [directory]` | Export conversations as JSON and Markdown |
+| `./val2harness help` | View command help |
+
+## Development
+
+The application is a Go executable with embedded web assets. Python and Node.js
+are used for optional checks, not required to run the gateway.
+
+```sh
+go test ./...
+go vet ./...
+node --check internal/web/static/app.js
+```
+
+Optional SDK/CLI fixtures live in [`tests/`](tests/). They use synthetic data and
+temporary directories. Live checks require explicit opt-in and consume Val quota;
+ordinary Go tests do not make incidental live calls.
+
+Native Windows and Ubuntu checks passed. macOS builds were checked, but macOS
+runtime behavior still needs verification. This branch has not been packaged as
+a new release.
+
+### Find your way around
+
+| Area | Read next |
+| --- | --- |
+| Architecture and code paths | [Project context](docs/PROJECT_CONTEXT.md) |
+| Tested clients and protocols | [Compatibility matrix](docs/AGENT_COMPATIBILITY.md) |
+| Most recent live checks | [OpenAI / Edit checkpoint](docs/OPENAI_EDIT_CHECK.md) |
+| Bugs, fixes, and review scope | [Bug audit](docs/BUG_AUDIT.md) · [Security review summary](docs/SECURITY_REVIEW.md) |
+| Configuration and recovery | [Config/auth](docs/CONFIG_AUTH_FIX.md) · [Daemon](docs/DAEMON_FIX.md) · [Exports](docs/EXPORT_FIX.md) |
+| Contributor workflow | [AGENTS.md](AGENTS.md) · [Development workflow](docs/DEVELOPMENT_WORKFLOW.md) |
+
+Contributions are welcome. Keep changes focused, include meaningful regression
+evidence, and describe the client/model/version actually tested. Use synthetic
+fixtures and redact diagnostics before sharing an issue.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
-
-```text
-MIT License
-
-Copyright (c) 2026 mncuchiinhuttt
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+[MIT](LICENSE) © 2026 mncuchiinhuttt.
