@@ -21,6 +21,12 @@ Only structural ideas informed this rewrite; text and artwork are original.
 No third-party brand artwork or screenshots are copied. No benchmark, CI badge,
 universal compatibility or model availability is invented.
 
+The user's follow-up keeps the explanatory `readme-hero.svg` lower in the page,
+under "How it works". The new top `readme-banner.svg` uses a larger wordmark,
+charcoal/lime palette and original interlocking ribbon artwork. It stays a
+self-contained static SVG, with accessible title/description and no remote fonts,
+scripts or embedded screenshots. Desktop and mobile previews check its placement.
+
 Publication is restricted to `codex/agent-compatibility-readme`. Its base retains
 the verified work from `6999a37`; the nine newer `origin/main` commits add analytics,
 quota and update features that require separate integration. Main is not merged,

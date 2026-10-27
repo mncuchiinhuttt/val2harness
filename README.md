@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/readme-hero.svg" alt="Your RMIT Val account, a local val2harness gateway, and your choice of agents and SDKs." width="1200">
+  <img src="docs/assets/readme-banner.svg" alt="val2harness — Your Val, connected. An open-source local gateway for your agents and tools." width="1440">
 </p>
 
 <h1 align="center">val2harness</h1>
@@ -14,6 +14,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
+  <a href="#how-it-works">How it works</a> ·
   <a href="#connect-a-tool">Connect a tool</a> ·
   <a href="#compatibility">Compatibility</a> ·
   <a href="#your-data-stays-yours">Your data</a> ·
@@ -96,6 +97,15 @@ also install release binaries. They do not build this branch or automatically
 verify its new behavior. Use the source steps above for this development version.
 
 </details>
+
+## How it works
+
+Your tool sends API requests to the local gateway, which forwards the selected
+inputs to Val. Your harness executes returned tool calls with its own permissions.
+
+<p align="center">
+  <img src="docs/assets/readme-hero.svg" alt="Your RMIT Val account connects through the local gateway to agents and SDKs. The harness executes tools." width="1200">
+</p>
 
 ## Connect a tool
 

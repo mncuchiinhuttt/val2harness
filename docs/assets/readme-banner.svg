@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="480" viewBox="0 0 1440 480" role="img" aria-labelledby="title description">
+  <title id="title">val2harness — Your Val, connected</title>
+  <desc id="description">A bold val2harness wordmark and luminous interlocking ribbons on a charcoal background. A local gateway for OpenAI Chat Completions and Anthropic Messages.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#101610"/><stop offset=".55" stop-color="#0c1114"/><stop offset="1" stop-color="#141d1a"/>
+    </linearGradient>
+    <radialGradient id="ambient">
+      <stop stop-color="#9bc85b" stop-opacity=".24"/><stop offset="1" stop-color="#9bc85b" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2=".7" y2="1">
+      <stop stop-color="#f0ffc1"/><stop offset=".28" stop-color="#c6ff63"/><stop offset=".68" stop-color="#78db92"/><stop offset="1" stop-color="#3daaa0"/>
+    </linearGradient>
+    <linearGradient id="ribbonShade" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#9fdd49"/><stop offset=".5" stop-color="#367a5d"/><stop offset="1" stop-color="#173b35"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#caff70" stop-opacity="0"/><stop offset=".5" stop-color="#caff70" stop-opacity=".8"/><stop offset="1" stop-color="#caff70" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r=".8" fill="#a8c4b0" opacity=".12"/>
+    </pattern>
+    <clipPath id="frame"><rect width="1440" height="480" rx="24"/></clipPath>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1440" height="480" fill="url(#background)"/>
+    <rect x="790" width="650" height="480" fill="url(#dots)"/>
+    <ellipse cx="1150" cy="223" rx="355" ry="310" fill="url(#ambient)"/>
+    <path d="M850 0 642 480M884 0 676 480" fill="none" stroke="#bedba8" stroke-opacity=".055"/>
+    <path d="M0 479.5H1440" stroke="url(#edge)"/>
+
+    <g fill="none" stroke="#93b7a5" stroke-opacity=".17">
+      <ellipse cx="1144" cy="229" rx="230" ry="165" transform="rotate(-25 1144 229)"/>
+      <ellipse cx="1144" cy="229" rx="256" ry="191" transform="rotate(-25 1144 229)" stroke-dasharray="2 10"/>
+      <path d="M865 229H1420M1144 14V444" stroke-opacity=".1"/>
+    </g>
+
+    <g transform="translate(1144 229) rotate(-25)">
+      <ellipse rx="164" ry="111" fill="#0c1412" stroke="#5a7861" stroke-width="1.5"/>
+      <ellipse rx="141" ry="89" stroke="#476d56" stroke-width="1.5" fill="none"/>
+      <path d="M-155 49C-198-19-127-130-29-120C27-114 50-68 68-16L90 45C105 85 148 82 165 46C193-14 157-86 99-102" fill="none" stroke="url(#ribbonShade)" stroke-width="39"/>
+      <path d="M-155 36C-196-31-124-138-29-128C25-122 47-78 66-28L88 33C103 73 145 70 161 35C187-24 152-98 94-113" fill="none" stroke="url(#ribbon)" stroke-width="31"/>
+      <path d="M-144-50C-177 6-139 95-71 106C-9 116 20 72 40 25L65-35C82-77 124-75 145-41C175 13 154 83 104 108" fill="none" stroke="#2a6550" stroke-width="38"/>
+      <path d="M-144-62C-177-6-139 83-71 94C-9 104 20 60 40 13L65-47C82-89 124-87 145-53C175 1 154 71 104 96" fill="none" stroke="url(#ribbon)" stroke-width="30"/>
+      <path d="M-144-65C-172-12-139 77-71 88" fill="none" stroke="#edffc9" stroke-opacity=".7" stroke-width="2"/>
+      <path d="M-155 29C-193-34-124-132-29-123" fill="none" stroke="#edffc9" stroke-opacity=".6" stroke-width="2"/>
+    </g>
+
+    <g fill="#ceff76">
+      <circle cx="941" cy="346" r="5"/><circle cx="1336" cy="114" r="5"/>
+      <circle cx="941" cy="346" r="9" opacity=".5" filter="url(#glow)"/>
+      <circle cx="1336" cy="114" r="9" opacity=".5" filter="url(#glow)"/>
+    </g>
+    <g font-family="'Cascadia Code',Consolas,'DejaVu Sans Mono',monospace">
+      <rect x="76" y="57" width="8" height="8" rx="2" fill="#c6ff63"/>
+      <text x="98" y="67" fill="#b5c2b3" font-size="14" font-weight="600" letter-spacing="2.4">LOCAL GATEWAY / OPEN SOURCE</text>
+      <text x="70" y="226" font-size="104" font-weight="700" letter-spacing="-6"><tspan fill="#f4f6ed">val</tspan><tspan fill="#c6ff63">2</tspan><tspan fill="#f4f6ed">harness</tspan></text>
+      <text x="78" y="285" fill="#c7d0c4" font-size="25" letter-spacing="-.7">Your Val. Connected to what’s next.</text>
+      <rect x="77" y="345" width="274" height="40" rx="20" fill="#c6ff63" fill-opacity=".08" stroke="#c6ff63" stroke-opacity=".24"/>
+      <text x="214" y="370" fill="#d8ecc1" font-size="13" text-anchor="middle" letter-spacing=".6">OPENAI CHAT COMPLETIONS</text>
+      <rect x="365" y="345" width="244" height="40" rx="20" fill="#c6ff63" fill-opacity=".08" stroke="#c6ff63" stroke-opacity=".24"/>
+      <text x="487" y="370" fill="#d8ecc1" font-size="13" text-anchor="middle" letter-spacing=".6">ANTHROPIC MESSAGES</text>
+      <text x="79" y="441" fill="#708274" font-size="11" letter-spacing="2">YOUR ACCOUNT. YOUR TOOLS. YOUR DATA.</text>
+    </g>
+  </g>
+</svg>
