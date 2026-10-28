@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/readme-banner.svg" alt="val2harness — Your Val, connected. An open-source local gateway for your agents and tools." width="1440">
+</p>
+
 # val2harness
 
 **High-Performance AI Bridge Connecting RMIT Val to Agent Harnesses**

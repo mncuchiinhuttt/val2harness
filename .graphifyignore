@@ -1,0 +1,5 @@
+.git/**
+.codex/**
+graphify-out/**
+dist/**
+exports/**
