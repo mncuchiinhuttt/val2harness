@@ -24,6 +24,7 @@ async function boot(hash='', quotaStatus='unknown') {
     if(url==='/api/local/status') data={token_configured:true,daemon_running:false,upstream:'http://synthetic.invalid',listen:'127.0.0.1:9999'};
     if(url==='/api/local/quota') data={status:quotaStatus,message:'Observed response',source:'gateway_session',observed_at:null,observed_requests:2,measured_requests:1,unmeasured_requests:1,prompt_tokens:0,completion_tokens:0,total_tokens:0,remaining:null,limit:null,reset_at:null};
     if(url==='/api/local/analytics') data=summary;
+    if(url==='/api/local/update') data={status:'ok',version:'v9.9.9'};
     if(url==='/api/local/analytics/live') {
       const bytes=new TextEncoder().encode('data: '+JSON.stringify(summary)+'\n\n');let offset=0;
       return {ok:true,status:200,body:{getReader(){return {async read(){if(offset>=bytes.length)return {done:true};const value=bytes.slice(offset,offset+7);offset+=7;return {done:false,value};},async cancel(){},releaseLock(){}};}}};
@@ -76,6 +77,11 @@ async function boot(hash='', quotaStatus='unknown') {
   assert.deepEqual(linked.requests.slice(before).map(r=>r.url),['/api/local/quota'],'refresh did more than read observations');
   await linked.elements.get('clearObservationsBtn').events.click();await new Promise(setImmediate);
   assert.ok(linked.requests.some(r=>r.url==='/api/local/analytics'&&r.opts.method==='DELETE'&&r.header==='Bearer browser-session'),'clear observations not owner-authenticated');
+  await linked.elements.get('updateNowBtn').events.click();
+  const updateToast = JSON.stringify(linked.elements.get('toastContainer').children);
+  assert.ok(updateToast.includes('Restart the gateway'),'installed update did not explain that the running gateway needs a restart');
+  assert.equal(linked.elements.get('updateNowBtn').textContent,'Restart required');
+  assert.equal(linked.elements.get('updateNowBtn').disabled,true,'installed update allowed another install before restart');
   for(const state of ['available','exhausted','rate_limited','authentication_error','provider_error','future_unknown_state']) {
     const fixture=await boot('#session=one-use-ticket',state);
     assert.ok(fixture.elements.get('quotaStatusText').textContent.length,'missing state label '+state);

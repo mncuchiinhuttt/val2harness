@@ -916,8 +916,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await apiFetch("/api/local/update", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        showToast({ title: "Update Successful", description: "Updated to " + data.version + ". Reloading page...", variant: "success" });
-        setTimeout(() => window.location.reload(), 2000);
+        showToast({ title: "Update Installed", description: "Installed " + data.version + ". Restart the gateway to use it. Active requests stay on the current version until restart.", variant: "success" });
+        updateNowBtn.textContent = "Restart required";
       } else {
         showToast({ title: "Update Failed", description: data.error, variant: "error" });
         updateNowBtn.disabled = false;
