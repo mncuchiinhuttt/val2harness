@@ -338,3 +338,23 @@ v4 checker then failed only whole-reply formatting; the v5 correction passed
 offline and was not rerun live. No user repository files were sent or edited.
 Shared request buffering is now limited to 32 MiB before dispatch; this is an
 explicit compatibility contract, not a claim about every provider's own limits.
+
+## Passive quota integration — 28 October 2026
+
+Source checkpoint `60907a5`; main integration `04a1d32` on
+`codex/passive-quota-checker`. [PASSIVE_QUOTA_CHECK.md](PASSIVE_QUOTA_CHECK.md)
+records verification and recovery. These entries are correctness/integration
+findings; they are not new validated security vulnerabilities.
+
+| Cause and impact | Evidence and correction |
+| --- | --- |
+| Main's quota probe treated arbitrary HTTP 200 as available and presumed a reset clock | REA research reproduced four false-availability cases. Replaced probing with shared bounded observation; only valid completed envelopes imply available, budget/auth/rate errors stay distinct, remaining/reset stay null. New JSON/SSE and both-protocol tests passed. |
+| Estimated/missing usage and repeated stream snapshots could mislead counters | New observer tests exercise missing/zero, late/cumulative/decreasing usage, oversized replies, malformed envelopes and cancellation. Only exact completed measurements count; forwarding bytes are preserved. |
+| Old in-flight requests could contaminate cleared/new-account observations | Token/generation snapshot plus generation rejection; reset/token concurrency tests and race checks passed. |
+| Port and subsequent token saves used stale whole-config state | Narrow per-field persistence preserves staged port, saved owner key and unknown fields; immutable live listener and failure cases have isolated regressions. |
+| Integrated updater was unbounded and lacked verified archive/replacement recovery | Added explicit HTTPS/redirect/status/size/checksum gates and unique staging/Windows recovery. Temp-only executable tests passed on Windows and selected Ubuntu paths; real releases remain untested. |
+| Update UI reloaded the browser while the process still ran its old executable | Node check failed before `60907a5`, then passed after replacing reload with a restart instruction. No automatic daemon replacement was added. |
+
+Codex Security's immutable patch assessment is summarized in SECURITY_REVIEW.md;
+it remains a scoped primary review with human review required, not a completed
+final-tree repository scan. No new Val inference was used in this increment.

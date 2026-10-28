@@ -181,3 +181,13 @@ file execution. Codex Security caught a buffering-induced redirect replay
 regression before live runs; it was corrected and covered by failing/passing
 tests. Final-reply formatting is separated from exact file/content evidence.
 All 32 historical live attempts are used; no remaining live authorization.
+
+The 28 October [passive quota checkpoint](PASSIVE_QUOTA_CHECK.md) supersedes the
+earlier integration status. Main `d8e4760` is reconciled on
+`codex/passive-quota-checker`; source `60907a5` has cache-only quota/analytics,
+exact measured usage, per-field settings persistence and a bounded updater.
+Local Go, SDK, browser and selected native Ubuntu checks passed; macOS is
+build-only. The validated primary Security patch assessment requires human
+review; its fresh independent reviewer was unavailable due to usage limits.
+No new live Val calls or user daemon replacement occurred. Release acceptance
+and initial-audit work outside this increment remain open.

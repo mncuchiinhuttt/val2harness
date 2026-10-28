@@ -29,12 +29,12 @@ older unsafe protocol/config/process behavior.
 
 - [x] Fresh baseline `go test ./... -count=1` before integration.
 - [x] Create branch from selected published Codex branch; carry research record.
-- [ ] Merge `origin/main` at `d8e4760`, resolve conflicts with verified behavior.
-- [ ] Run Go tests, Node/dashboard checks; record any deliberate integration choices.
+- [x] Merge `origin/main` at `d8e4760`, resolve conflicts with verified behavior.
+- [x] Run Go tests, Node/dashboard checks; record any deliberate integration choices.
 
 ### Task 2: Shared passive observation
 
-Files: `internal/analytics/{types,tracker,summary,events,observer}.go` and tests;
+Files: `internal/analytics/{types,tracker,summary,events}.go` and tests;
 `internal/valclient/client.go`, `chat_response.go` and tests; protocol tag in Messages.
 
 Interface used by web/CLI:
@@ -46,34 +46,37 @@ remaining/limit/reset_at (null when unknown). Source is `gateway_session`.
 Analytics retains existing field names, adds measurement counts and per-record
 `usage_known`; missing per-record counts serialize null.
 
-- [ ] Write and watch failing tests for valid/invalid JSON, measured zero/missing
+- [x] Write and watch failing tests for valid/invalid JSON, measured zero/missing
   usage, HTTP 200 budget errors, 401/403/429/5xx and malformed responses.
-- [ ] Implement bounded observation in the shared client without extra requests.
-- [ ] Prove fragmented streaming, late and duplicate usage, partial/cancelled
+- [x] Implement bounded observation in the shared client without extra requests.
+- [x] Prove fragmented streaming, late and duplicate usage, partial/cancelled
   bodies, byte preservation, oversize fallback, reset and token-change isolation.
-- [ ] Run targeted tests and race checks for analytics/Val client.
+- [x] Run targeted tests and race checks for analytics/Val client.
 
 ### Task 3: Web and CLI
 
 Files: `internal/web/api_routes.go`, static assets, tests; `cmd_quota.go`, main/help.
 
-- [ ] Regression tests: GET quota/analytics causes zero fake-upstream calls;
+- [x] Regression tests: GET quota/analytics causes zero fake-upstream calls;
   methods/auth/origins enforced; DELETE clears cache without touching user files.
-- [ ] Route all views to `client.UsageTracker()`; preserve live analytics SSE.
-- [ ] Replace probe/reset countdown with observed status, unknown remaining/reset,
+- [x] Route all views to `client.UsageTracker()`; preserve live analytics SSE.
+- [x] Replace probe/reset countdown with observed status, unknown remaining/reset,
   session scope, measured/unmeasured counts, refresh and explicit clear control.
-- [ ] Preserve owner authentication on new live requests and tab navigation.
-- [ ] CLI reads the authenticated local gateway only, with bounded body/time and
+- [x] Preserve owner authentication on new live requests and tab navigation.
+- [x] CLI reads the authenticated local gateway only, with bounded body/time and
   no redirects; test offline/unconfigured states with isolated fixtures.
-- [ ] Check JS syntax and Node dashboard tests; inspect desktop/mobile fixtures.
+- [x] Check JS syntax and Node dashboard tests; inspect desktop/mobile fixtures.
 
 ### Task 4: Review and delivery
 
-- [ ] Go suite/vet/build, targeted race tests, appropriate Python/SDK regressions.
-- [ ] Independent branch review and Codex Security assessment of immutable patch.
-- [ ] Resolve important findings with failing/passing regression evidence.
-- [ ] Refresh Graphify offline; update README/context and completion record.
-- [ ] Commit coherent changes; report branch, checks and remaining coverage limits.
+- [x] Go suite/vet/build, targeted race tests, appropriate Python/SDK regressions.
+- [x] Primary Codex Security assessment of immutable patch; JSON validator passed.
+- [ ] Fresh independent branch review: reviewer failed immediately due account
+  usage limit. Not completed; human review remains required before merging.
+- [x] Resolve identified important issues with failing/passing regression evidence.
+- [x] Refresh Graphify offline; update README/context and completion record.
+- [x] Commit coherent implementation changes; record branch, checks and remaining
+  coverage limits. Publication/final handoff follow this checkpoint.
 
 ## Decisions and evidence ledger
 
@@ -82,7 +85,7 @@ Files: `internal/web/api_routes.go`, static assets, tests; `cmd_quota.go`, main/
 - Design details expand the previously approved four steps; routine choices use
   existing conventions. Further repetitive approval gates are not introduced.
 - Research commit `4b091c2` was carried forward as `c4395cd` (documentation only).
-- Baseline Go suite passed all existing packages. No app source has changed yet.
+- Baseline Go suite passed all existing packages before integration.
 - Reconciliation retains verified daemon/export/config/protocol implementations;
   main's overlapping safety helpers are superseded. Its unused `safeio` package
   is omitted (no production callers; Windows permission test assumed Unix modes).
@@ -90,11 +93,25 @@ Files: `internal/web/api_routes.go`, static assets, tests; `cmd_quota.go`, main/
   are refused. Unsupported 1M context and invented zero-cost claims are omitted.
 - New port configuration must preserve live immutable config and update only the
   saved address; subsequent token updates must preserve that staged address.
-- The merged updater is being bounded and checksum-verified before it can replace
-  an executable. No real update/download is run during verification.
+- The merged updater is bounded and checksum-verified before it can replace an
+  executable. No real update/download was run during verification.
 - One initial negative-method web test reached the public GitHub release metadata
   API before its guard was fixed. No Val call or executable download/update ran;
   tests now block non-loopback HTTP so this cannot silently recur.
 - CLI tests: expected RED (`readQuota` missing), then GREEN for authenticated
   cache reads, no redirects/nonlocal credentials, bounds, cancellation and null
   unknown reset/remaining. Local `version` now prints without a network request.
+- Source checkpoint `60907a5`: all 13 tested Go packages, vet, Windows build,
+  official OpenAI/Anthropic offline SDK checks and desktop/mobile browser checks
+  passed. Six selected Ubuntu packages passed natively; Darwin arm64 build-only.
+- Windows race checks passed for analytics/client/proxy/web/version at `04a1d32`;
+  Go files are unchanged at `60907a5`. The later change fixes update UI copy and
+  adds its Node regression (observed RED, then GREEN).
+- Immutable final patch SHA256:
+  `a19ba7735fce133fb18a67d62b4b7c8488bdb440769c36a76226fc0fdb5e926e`.
+  Codex Security recommends human review, with partial protection and moderate
+  confidence. No completed final-tree native scan or independent review claimed.
+- See `docs/PASSIVE_QUOTA_CHECK.md` for user-visible behavior, complete checks,
+  privacy, recovery and remaining release acceptance.
+- Offline Graphify refresh: 1,025 nodes, 3,415 edges, 66 communities; no external
+  AI or query logging. Receiver edges and semantic documentation remain partial.

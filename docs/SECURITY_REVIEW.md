@@ -46,6 +46,33 @@ CLI path-denial case. The README refresh is documentation work after that patch
 assessment. See [OPENAI_EDIT_CHECK.md](OPENAI_EDIT_CHECK.md) for the exact local/live
 evidence and the final-reply formatting distinction.
 
+## Passive quota and main integration — 28 October 2026
+
+The supported standalone Codex Security `assess-patch-risk` workflow assessed
+`bf9ad72f81b2f6ae50dabf42dc5ab246f3df8817` through
+`60907a5b6466796c20dc35a58b116f341928ec4b` (39 changed files). Immutable patch SHA256:
+
+```text
+a19ba7735fce133fb18a67d62b4b7c8488bdb440769c36a76226fc0fdb5e926e
+```
+
+The JSON passed the plugin validator. The assessment supports the patch with
+**human review required before merging**: impact high, likelihood moderate,
+protection partial, recovery managed, confidence moderate. It traces management
+authority, passive network/privacy behavior, bounded stream measurements,
+account generations, retention/rendering, narrow settings writes, CLI credential
+destinations, updater download trust and executable recovery/restart behavior.
+No additional unresolved source-visible vulnerability was established in this
+scoped primary review. A misleading post-update reload message was reproduced
+and corrected with a failing/passing Node regression before the final assessment.
+
+The fresh independent reviewer failed immediately due to account usage limits.
+The earlier native Diff preflight's ancestor-root/Git-trust blocker was unchanged;
+no completed final-tree native scan or Cloud upload is claimed. Managed local
+artifacts retain the immutable patch, validated Markdown/JSON assessment and
+execution logs. This does not modify or extend historical sealed scans.
+Full local evidence and release limits: [PASSIVE_QUOTA_CHECK.md](PASSIVE_QUOTA_CHECK.md).
+
 ## Reproducing and sharing evidence
 
 Use the repository's synthetic tests and isolated temporary directories. Never

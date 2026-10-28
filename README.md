@@ -195,10 +195,13 @@ Observations cover this gateway session, excluding the Val website and other
 clients. They stay in memory and clear on restart, account-token change, or
 **Clear observations**. Prompts, replies and tool arguments are not kept in the
 usage tracker. Older `usage.jsonl` files are neither loaded nor deleted automatically.
+See [verification and recovery notes](docs/PASSIVE_QUOTA_CHECK.md) for the
+28 October local checks and current release limits.
 
 ## Compatibility
 
-The following evidence applies to the current source, checked on **27 October 2026**:
+The following live evidence was recorded on **27 October 2026**. Offline SDK
+regressions passed again on **28 October**; no additional live Val calls were made.
 
 | Client / flow | Verified behavior |
 | --- | --- |
@@ -283,6 +286,9 @@ for Windows ACLs, Unix permissions, and partial-result recovery.
 | `./val2harness update` | Install a release only after its matching checksum is verified |
 | `./val2harness export [directory]` | Export conversations as JSON and Markdown |
 | `./val2harness help` | View command help |
+
+After installing an update, restart the gateway to use the new executable.
+Active requests stay on the running version until restart.
 
 ## Development
 

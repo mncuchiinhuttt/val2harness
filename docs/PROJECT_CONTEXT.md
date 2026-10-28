@@ -9,11 +9,15 @@ bug-first workflow, required tools, and subsequent usability/interoperability
 research. The observations below are the initial inspection baseline; the later
 reproductions and security results are recorded in `BUG_AUDIT.md`.
 
-Publication branch: `codex/agent-compatibility-readme`, created on 27 October
-2026 for the verified fixes and README refresh. It retains the tested baseline;
-the nine newer `origin/main` commits need a separate integration review. Only
-this new branch is authorized for push. Local tooling and raw diagnostics are
-excluded; see [the publication plan](superpowers/plans/2026-10-27-readme-publish.md).
+Current branch: `codex/passive-quota-checker`, created on 28 October 2026 from
+published `codex/agent-compatibility-readme` at `bf9ad72`. Main `d8e4760` is now
+integrated while retaining the verified fixes. Source checkpoint `60907a5` adds
+passive session observations, protected dashboard/CLI views, narrow port/token
+persistence and a bounded checksum-required updater. See
+[PASSIVE_QUOTA_CHECK.md](PASSIVE_QUOTA_CHECK.md) for current checks, recovery and
+review limits. Main is not a push/merge destination. The earlier
+[publication plan](superpowers/plans/2026-10-27-readme-publish.md) is historical;
+local tools and raw diagnostics remain excluded.
 
 Historical debugging state: branch `codex/preserve-config-owner-auth` based on the
 same commit, with uncommitted configuration-preservation and owner-authentication
@@ -37,7 +41,7 @@ verified exact file bytes, three turns and zero permission denials; its final
 reply-format assertion was corrected offline. All 32 historical attempts are
 used; one previously unused attempt was retired. No user daemon was replaced.
 
-28 October: `codex/rea-quota-research` starts from published `bf9ad72`.
+Earlier on 28 October: `codex/rea-quota-research` started from published `bf9ad72`.
 [REA_QUOTA_RESEARCH.md](REA_QUOTA_RESEARCH.md) records the optional local REA
 6.8.0 CLI/skill installation, public Val artifact analysis, synthetic capture
 verification and four reproduced false-availability cases in remote main's
@@ -45,6 +49,14 @@ quota checker. No application source or running gateway was changed. After a
 user-authorized token refresh, one read-only self-account request returned HTTP
 200 but no quota contract. No new inference was sent. Exact account quota and
 reset policy remain unverified; private response values remain local.
+
+Later on 28 October, that research was carried into the current feature branch.
+The passive checker is now implemented and locally verified; it keeps remaining
+quota/reset unknown. This supersedes the research-only implementation status.
+Read PASSIVE_QUOTA_CHECK.md before relying on older handoff text below.
+The current offline Graphify refresh contains **1,025 nodes, 3,415 edges and 66
+communities**. External AI and query logging are disabled; documentation semantic
+extraction was not rerun and missing Go receiver edges remain inconclusive.
 
 ## Purpose
 
