@@ -61,6 +61,8 @@ func (s *Server) registerRoutes() {
 func (s *Server) DaemonStopRequested() <-chan struct{} { return s.daemonStop }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
 	if !s.guard(w, r) {
 		return
 	}

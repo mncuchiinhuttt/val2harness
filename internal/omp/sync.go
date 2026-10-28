@@ -2,6 +2,7 @@ package omp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,7 +32,34 @@ func GetOMPModelsPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".omp", "models.yml"), nil
+	paths := []string{
+		filepath.Join(home, ".omp", "agent", "models.yml"),
+		filepath.Join(home, ".omp", "models.yml"),
+	}
+	// Select one existing document, or its backup when only a restore point
+	// remains. Never mirror one location over a different user's document.
+	for _, suffix := range []string{"", ".bak"} {
+		var chosen string
+		for _, path := range paths {
+			if _, err := os.Lstat(path + suffix); err == nil {
+				if chosen != "" {
+					return "", fmt.Errorf("multiple OMP settings locations exist; select one before syncing or restoring")
+				}
+				chosen = path
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return "", err
+			}
+		}
+		if chosen != "" {
+			return chosen, nil
+		}
+	}
+	if info, err := os.Stat(filepath.Dir(paths[0])); err == nil && info.IsDir() {
+		return paths[0], nil
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	return paths[1], nil
 }
 
 func SyncModels(ctx context.Context, client *valclient.Client, proxyBaseURL, proxyAPIKey string) (int, string, error) {

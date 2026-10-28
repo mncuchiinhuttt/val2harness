@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"val2harness/internal/analytics"
 	"val2harness/internal/valclient"
 )
 
@@ -74,7 +75,7 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	if len(req.Compatibility) > 0 {
 		w.Header().Set("X-Val2harness-Compatibility", strings.Join(req.Compatibility, ", "))
 	}
-	upstreamResp, err := s.client.ProxyChat(r.Context(), bytes.NewReader(valJSON))
+	upstreamResp, err := s.client.ProxyChat(analytics.WithProtocol(r.Context(), "anthropic"), bytes.NewReader(valJSON))
 	if err != nil {
 		if errors.Is(err, valclient.ErrChatRequestTooLarge) {
 			messagesError(w, 413, "request_too_large", err.Error())

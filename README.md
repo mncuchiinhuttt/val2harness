@@ -16,6 +16,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#connect-a-tool">Connect a tool</a> ·
+  <a href="#quota-and-usage">Quota &amp; usage</a> ·
   <a href="#compatibility">Compatibility</a> ·
   <a href="#your-data-stays-yours">Your data</a> ·
   <a href="#development">Development</a>
@@ -29,6 +30,7 @@ Val, and returns the response. Your chosen harness runs the tools.
 - **Two familiar APIs.** OpenAI Chat Completions and an Anthropic Messages adapter.
 - **Practical connections.** Configuration writers for OMP, Pi, OpenCode, and Continue.
 - **User-owned data.** Local credentials, preserved settings, and private conversation exports.
+- **Measured usage.** Observe normal requests without spending quota on background probes.
 
 > [!IMPORTANT]
 > This development branch contains fixes newer than the published **v1.0.0** packages.
@@ -42,7 +44,7 @@ Val, and returns the response. Your chosen harness runs the tools.
 Install [Go 1.26 or newer](https://go.dev/dl/), then clone this development branch:
 
 ```sh
-git clone --branch codex/agent-compatibility-readme https://github.com/mncuchiinhuttt/val2harness.git
+git clone --branch codex/passive-quota-checker https://github.com/mncuchiinhuttt/val2harness.git
 cd val2harness
 ```
 
@@ -172,6 +174,28 @@ settings and retains the first original as a `.bak` backup. It refuses malformed
 files and unsafe states instead of overwriting them. See the
 [configuration and recovery notes](docs/CONFIG_AUTH_FIX.md) before restoring settings.
 
+## Quota and usage
+
+The dashboard observes requests you already make through the gateway. Refreshing
+the quota view sends no inference request. It distinguishes an observed successful
+completion, exhausted budget, temporary rate limiting, expired/rejected credentials,
+and provider failures, and shows when the observation was made.
+
+```sh
+./val2harness quota
+./val2harness quota --json
+```
+
+These commands read the running gateway's local cache. Measured input/output
+tokens are shown separately from requests whose usage is missing. **Remaining
+account quota and reset time stay Unknown**: the inspected Val response does not
+provide an authoritative contract for them.
+
+Observations cover this gateway session, excluding the Val website and other
+clients. They stay in memory and clear on restart, account-token change, or
+**Clear observations**. Prompts, replies and tool arguments are not kept in the
+usage tracker. Older `usage.jsonl` files are neither loaded nor deleted automatically.
+
 ## Compatibility
 
 The following evidence applies to the current source, checked on **27 October 2026**:
@@ -253,6 +277,10 @@ for Windows ACLs, Unix permissions, and partial-result recovery.
 | `./val2harness chat <model-id>` | Chat in the terminal |
 | `./val2harness sync` | Write the four supported harness configurations |
 | `./val2harness env` | View private client connection settings |
+| `./val2harness quota [--json]` | Read observed status and measured gateway-session usage |
+| `./val2harness version` | Print the installed version without a network request |
+| `./val2harness update --check` | Explicitly check GitHub for a newer release |
+| `./val2harness update` | Install a release only after its matching checksum is verified |
 | `./val2harness export [directory]` | Export conversations as JSON and Markdown |
 | `./val2harness help` | View command help |
 

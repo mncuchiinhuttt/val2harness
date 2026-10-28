@@ -83,3 +83,18 @@ Files: `internal/web/api_routes.go`, static assets, tests; `cmd_quota.go`, main/
   existing conventions. Further repetitive approval gates are not introduced.
 - Research commit `4b091c2` was carried forward as `c4395cd` (documentation only).
 - Baseline Go suite passed all existing packages. No app source has changed yet.
+- Reconciliation retains verified daemon/export/config/protocol implementations;
+  main's overlapping safety helpers are superseded. Its unused `safeio` package
+  is omitted (no production callers; Windows permission test assumed Unix modes).
+- OMP adds a single safely selected `agent/models.yml` location; ambiguous files
+  are refused. Unsupported 1M context and invented zero-cost claims are omitted.
+- New port configuration must preserve live immutable config and update only the
+  saved address; subsequent token updates must preserve that staged address.
+- The merged updater is being bounded and checksum-verified before it can replace
+  an executable. No real update/download is run during verification.
+- One initial negative-method web test reached the public GitHub release metadata
+  API before its guard was fixed. No Val call or executable download/update ran;
+  tests now block non-loopback HTTP so this cannot silently recur.
+- CLI tests: expected RED (`readQuota` missing), then GREEN for authenticated
+  cache reads, no redirects/nonlocal credentials, bounds, cancellation and null
+  unknown reset/remaining. Local `version` now prints without a network request.

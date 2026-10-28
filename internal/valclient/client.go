@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"val2harness/internal/analytics"
 )
 
 type Client struct {
@@ -18,6 +20,7 @@ type Client struct {
 	token      string
 	tokenMu    sync.RWMutex
 	httpClient *http.Client
+	tracker    *analytics.Tracker
 }
 
 func NewClient(baseURL, token string) *Client {
@@ -25,6 +28,7 @@ func NewClient(baseURL, token string) *Client {
 	return &Client{
 		baseURL: baseURL,
 		token:   token,
+		tracker: analytics.NewTracker(),
 		httpClient: &http.Client{
 			Timeout: 0, // No global timeout for SSE streaming
 		},
@@ -34,8 +38,14 @@ func NewClient(baseURL, token string) *Client {
 func (c *Client) SetToken(token string) {
 	c.tokenMu.Lock()
 	defer c.tokenMu.Unlock()
+	if c.token == token {
+		return
+	}
 	c.token = token
+	c.tracker.Reset()
 }
+
+func (c *Client) UsageTracker() *analytics.Tracker { return c.tracker }
 
 func (c *Client) GetToken() string {
 	c.tokenMu.RLock()
@@ -103,11 +113,33 @@ func (c *Client) ProxyChat(ctx context.Context, body io.Reader) (*http.Response,
 	// destination. Raw OpenAI request bodies were not replayable before.
 	req.GetBody = nil
 
-	req.Header.Set("Authorization", "Bearer "+c.GetToken())
+	// Capture credentials and observation generation together. A token change
+	// resets the tracker while holding this same lock, so old requests cannot
+	// enter the new account's session history.
+	c.tokenMu.RLock()
+	token, generation := c.token, c.tracker.Begin()
+	c.tokenMu.RUnlock()
+	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream, application/json")
 
-	return c.httpClient.Do(req)
+	var metadata struct {
+		Model string `json:"model"`
+	}
+	_ = json.Unmarshal(data, &metadata)
+	observation := analytics.Observation{Model: analytics.ModelName(metadata.Model), Protocol: analytics.Protocol(ctx), Status: "unknown"}
+	started := time.Now()
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		if ctx.Err() == nil {
+			observation.Status = "provider_error"
+		}
+		observation.LatencyMs = time.Since(started).Milliseconds()
+		c.tracker.Observe(generation, observation)
+		return resp, err
+	}
+	c.observeResponse(ctx, resp, generation, observation, started)
+	return resp, nil
 }
 
 func (c *Client) ListChats(ctx context.Context) ([]ChatHistoryItem, error) {

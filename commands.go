@@ -15,6 +15,7 @@ import (
 	valSync "val2harness/internal/sync"
 	"val2harness/internal/tui"
 	"val2harness/internal/valclient"
+	"val2harness/internal/version"
 )
 
 func runStart(args []string) {
@@ -199,4 +200,35 @@ func loadCLIConfig() *config.Config {
 		os.Exit(1)
 	}
 	return cfg
+}
+
+func runUpdate(args []string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	if len(args) > 0 && (args[0] == "--check" || args[0] == "-c") {
+		info, err := version.CheckUpdate(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Update check failed: %v\n", err)
+			os.Exit(1)
+		}
+		if info.HasUpdate {
+			fmt.Printf("Update available: %s -> %s\nRun 'val2harness update' to install.\n", info.CurrentVersion, info.LatestVersion)
+		} else {
+			fmt.Printf("val2harness is up to date (%s).\n", info.CurrentVersion)
+		}
+		return
+	}
+
+	fmt.Printf("Checking for updates (current: %s)...\n", version.CurrentVersion)
+	v, err := version.SelfUpdate(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Update failed: %v\n", err)
+		os.Exit(1)
+	}
+	if v == version.CurrentVersion {
+		fmt.Printf("Already running the latest version (%s).\n", v)
+	} else {
+		fmt.Printf("[OK] Successfully updated to %s!\n", v)
+	}
 }

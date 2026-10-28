@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"val2harness/internal/config"
+	"val2harness/internal/configfile"
 	"val2harness/internal/daemon"
 	"val2harness/internal/valclient"
 )
@@ -25,9 +26,18 @@ func RegisterWebRoutes(mux *http.ServeMux, cfg *config.Config, client *valclient
 	persistToken := func(token string) error {
 		tokenUpdateMu.Lock()
 		defer tokenUpdateMu.Unlock()
-		next := *cfg
-		next.Token = token
-		if err := next.Save(); err != nil {
+		path, err := config.GetConfigPath()
+		if err != nil {
+			return err
+		}
+		if err := configfile.Update(path, func(data []byte) ([]byte, error) {
+			values, err := configfile.JSONObject(data)
+			if err != nil {
+				return nil, err
+			}
+			values["token"] = token
+			return json.MarshalIndent(values, "", "  ")
+		}); err != nil {
 			return err
 		}
 		if onTokenUpdate != nil {
@@ -57,6 +67,11 @@ func RegisterWebRoutes(mux *http.ServeMux, cfg *config.Config, client *valclient
 	})
 
 	mux.HandleFunc("/api/local/status", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", "GET")
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		token := client.GetToken()
 		var exp int64 = 0

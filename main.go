@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"val2harness/internal/tui"
+	"val2harness/internal/version"
 )
 
 func main() {
@@ -41,6 +42,12 @@ func main() {
 		runToken(args)
 	case "export":
 		runExport(args)
+	case "quota":
+		runQuota(args)
+	case "update":
+		runUpdate(args)
+	case "version", "-v", "--version":
+		fmt.Println(version.CurrentVersion)
 	case "help", "-h", "--help":
 		printHelp()
 	default:
@@ -66,6 +73,9 @@ Commands:
   models      List all models available on your RMIT Val account
   sync        Sync models to ALL harnesses (OMP, Pi, OpenCode, Continue)
   env         Print shell export variables (for Claude Code, Cursor, Aider, zcode)
+  version     Print the installed version (offline)
+  update      Check and install latest val2harness release
+  quota       Read local observed status and measured usage (--json available)
   token       View or update the RMIT Val JWT token
   export      Export chat conversations to Markdown and JSON
   help        Show this help message

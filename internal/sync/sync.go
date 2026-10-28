@@ -10,6 +10,7 @@ import (
 
 	"val2harness/internal/config"
 	"val2harness/internal/configfile"
+	"val2harness/internal/omp"
 	"val2harness/internal/valclient"
 )
 
@@ -49,7 +50,10 @@ func getHarnessPaths(harness string) (target, backup string, err error) {
 	}
 	switch strings.ToLower(harness) {
 	case "omp":
-		target = filepath.Join(home, ".omp", "models.yml")
+		target, err = omp.GetOMPModelsPath()
+		if err != nil {
+			return "", "", err
+		}
 	case "pi":
 		target = filepath.Join(home, ".pi", "models.json")
 	case "opencode":
