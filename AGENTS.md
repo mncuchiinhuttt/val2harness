@@ -43,6 +43,10 @@ requests go to the user's configured Val service; explain that data flow honestl
 - **Graphify supplies relationship context.** Use focused queries before broad
   architecture searches, then verify important relationships in source. Its Go
   receiver-call coverage is incomplete; a missing edge proves no absence.
+- **REA supplies shipped-artifact and requested runtime evidence.** The optional
+  local CLI and reusable skill are documented in `docs/REA_QUOTA_RESEARCH.md`.
+  Use the pinned Windows launcher and its supported Node runtime. Keep private
+  captures local; ordinary source analysis still uses repository tools.
 
 ## Work in this order
 

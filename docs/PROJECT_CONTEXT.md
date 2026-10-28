@@ -37,6 +37,15 @@ verified exact file bytes, three turns and zero permission denials; its final
 reply-format assertion was corrected offline. All 32 historical attempts are
 used; one previously unused attempt was retired. No user daemon was replaced.
 
+28 October: `codex/rea-quota-research` starts from published `bf9ad72`.
+[REA_QUOTA_RESEARCH.md](REA_QUOTA_RESEARCH.md) records the optional local REA
+6.8.0 CLI/skill installation, public Val artifact analysis, synthetic capture
+verification and four reproduced false-availability cases in remote main's
+quota checker. No application source or running gateway was changed. After a
+user-authorized token refresh, one read-only self-account request returned HTTP
+200 but no quota contract. No new inference was sent. Exact account quota and
+reset policy remain unverified; private response values remain local.
+
 ## Purpose
 
 A local Go gateway that lets developer tools use an existing RMIT Val account.
